@@ -10,7 +10,6 @@ export default class UIManager {
     constructor(classManager, companyManager) {
         this.classManager = classManager;
         this.companyManager = companyManager;
-        
         // Initialize UI elements
         this.initializeUI();
     }
@@ -335,97 +334,7 @@ export default class UIManager {
      * @param {string} className - Optional filter by class name
      */
     renderCompanyList(className = null) {
-        this.companiesList.innerHTML = '';
-        
-        let companies;
-        if (className) {
-            companies = this.companyManager.getCompaniesForClass(className);
-        } else {
-            companies = this.companyManager.getAllCompanies();
-        }
-        
-        if (companies.length === 0) {
-            const emptyMessage = document.createElement('p');
-            emptyMessage.className = 'company-list-empty';
-            emptyMessage.textContent = 'Nenhuma empresa cadastrada.';
-            this.companiesList.appendChild(emptyMessage);
-            return;
-        }
-        
-        companies.forEach(company => {
-            const companyCard = document.createElement('div');
-            companyCard.className = 'card company-card';
-            // Get student names for this company
-            const students = company.memberIds.map(id => {
-                const classStudents = this.classManager.getStudents(company.classroomName);
-                const student = classStudents.find(s => s.id === id);
-                return student ? student.name : 'Aluno não encontrado';
-            });
-            
-            const companyContent = document.createElement('div');
-            companyContent.className = 'company-header';
-            companyContent.innerHTML = `
-                <h4>${company.name}</h4>
-                <p><strong>Turma:</strong> ${company.classroomName}</p>
-                <p class="company-students"><strong>Alunos:</strong> ${students.join(', ')}</p>
-                <div class="company-finances">
-                    <div class="finance-item">
-                        <div>Orçamento</div>
-                        <div class="finance-value budget">R$ ${company.currentBudget.toFixed(2)}</div>
-                    </div>
-                    <div class="finance-item">
-                        <div>Despesas</div>
-                        <div class="finance-value expenses">R$ ${company.getTotalExpenses().toFixed(2)}</div>
-                    </div>
-                    <div class="finance-item">
-                        <div>Lucro</div>
-                        <div class="finance-value profit">R$ ${company.getProfit().toFixed(2)}</div>
-                    </div>
-                </div>
-            `;
-            
-            companyCard.appendChild(companyContent);
-            
-            // Add expense and revenue buttons
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'company-actions';
-            
-            const addExpenseBtn = document.createElement('button');
-            addExpenseBtn.textContent = 'Adicionar Despesa';
-            addExpenseBtn.className = 'expense-button';
-            addExpenseBtn.addEventListener('click', () => this.showFinanceModal(company, 'expense'));
-            
-            const addRevenueBtn = document.createElement('button');
-            addRevenueBtn.textContent = 'Adicionar Receita';
-            addRevenueBtn.className = 'revenue-button';
-            addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
-            
-            buttonContainer.appendChild(addExpenseBtn);
-            buttonContainer.appendChild(addRevenueBtn);
-            companyCard.appendChild(buttonContainer);
-            
-            // Delete company button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Excluir Empresa';
-            deleteBtn.className = 'delete-button';
-            deleteBtn.addEventListener('click', () => {
-                Modal.show({
-                    title: 'Confirmar Exclusão',
-                    message: `Tem certeza que deseja excluir a empresa "${company.name}"?`,
-                    confirmText: 'Excluir',
-                    cancelText: 'Cancelar',
-                    type: 'danger',
-                    onConfirm: () => {
-                        this.companyManager.deleteCompany(company.id);
-                        this.renderCompanyList();
-                        Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
-                    }
-                });
-            });
-            
-            companyCard.appendChild(deleteBtn);
-            this.companiesList.appendChild(companyCard);
-        });
+        this.companyManager.companyOperationManager.renderCompanyList();
     }
 
     /**

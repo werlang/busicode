@@ -2,11 +2,11 @@
  * Navigation Manager
  * Manages the navigation between sections in the application
  */
-import StorageManager from '../helpers/storage-manager.js';
+import Storage from '../helpers/storage.js';
 
 export default class NavigationManager {
     constructor() {
-        this.storageManager = new StorageManager('busicode_navigation');
+        this.storageManager = new Storage('busicode_navigation');
         this.setupNavigation();
         this.restoreLastTab();
     }

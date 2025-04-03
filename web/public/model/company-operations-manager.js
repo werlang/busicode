@@ -32,7 +32,7 @@ export default class CompanyOperationsManager {
         this.updateCompanyFilterSelect();
         
         // Render initial company list
-        this.renderCompanyList();
+        // this.renderCompanyList();
     }
 
     /**

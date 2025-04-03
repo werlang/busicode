@@ -2,7 +2,7 @@
  * Storage Manager
  * Handles saving and loading data from local storage
  */
-export default class StorageManager {
+export default class Storage {
     constructor(storageKey) {
         this.storageKey = storageKey;
     }

@@ -19,6 +19,7 @@
                 <li><a href="#" class="nav-link active" data-section="setup-section">Turmas e Alunos</a></li>
                 <li><a href="#" class="nav-link" data-section="company-creation-section">Criar Empresas</a></li>
                 <li><a href="#" class="nav-link" data-section="company-operations-section">Gerenciar Empresas</a></li>
+                <li><a href="#" class="nav-link" data-section="product-launch-section">Lançamento de Produtos</a></li>
             </ul>
         </nav>
     </header>
@@ -37,10 +38,6 @@
                         <label for="class-name">Nome da Turma:</label>
                         <input type="text" id="class-name" placeholder="Ex: Turma A 2025">
                     </div>
-                    <div class="form-group">
-                        <label for="student-initial-balance">Saldo Inicial dos Alunos (R$):</label>
-                        <input type="number" id="student-initial-balance" placeholder="Ex: 100" value="0" min="0">
-                    </div>
                     <button id="create-class-btn">Criar Turma</button>
                 </div>
 
@@ -55,6 +52,10 @@
                     <div class="form-group">
                         <label for="student-csv">Nomes dos Alunos (separados por vírgula):</label>
                         <textarea id="student-csv" placeholder="João Silva, Maria Santos, Pedro Oliveira"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-initial-balance">Saldo Inicial dos Alunos (R$):</label>
+                        <input type="number" id="student-initial-balance" placeholder="Ex: 100" value="0" min="0">
                     </div>
                     <button id="import-students-btn">Importar Alunos</button>
                 </div>
@@ -123,6 +124,57 @@
                     <h3>Empresas Ativas</h3>
                     <div id="companies-list" class="card-container">
                         <!-- Companies will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção de Lançamento de Produtos -->
+        <section class="app-section" id="product-launch-section">
+            <div class="section-header">
+                <h2>Lançamento de Produtos</h2>
+            </div>
+
+            <div class="container">
+                <div class="card">
+                    <h3>Selecionar Produtos para Lançamento</h3>
+                    <div class="form-group">
+                        <label for="launch-company-select">Filtrar por Empresa:</label>
+                        <select id="launch-company-select">
+                            <option value="">Todas as empresas</option>
+                        </select>
+                    </div>
+                    <div id="product-selection-container">
+                        <!-- Products for selection will be loaded here -->
+                    </div>
+                    <button id="add-selected-products-btn">Adicionar Produtos Selecionados</button>
+                </div>
+            </div>
+
+            <div class="container">
+                <div class="card">
+                    <h3>Produtos no Lançamento</h3>
+                    <div id="launch-products-table-container">
+                        <table id="launch-products-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Empresa</th>
+                                    <th>Produto</th>
+                                    <th>Preço (R$)</th>
+                                    <th>Vendas</th>
+                                    <th>Total (R$)</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="launch-products-body">
+                                <!-- Launch products will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="launch-actions">
+                        <button id="start-selling-round-btn">Iniciar Rodada de Vendas</button>
+                        <button id="apply-sales-btn" disabled>Aplicar Vendas</button>
+                        <button id="clear-launch-btn">Limpar Lançamento</button>
                     </div>
                 </div>
             </div>
