@@ -1,0 +1,15 @@
+{
+    "name": "BusiCode Assignments",
+    "version": "1.0.0",
+    "description": "Helper for BusiCode assignments",
+    "type": "module",
+    "scripts": {
+        "start": "nodemon app.js"
+    },
+    "author": "Pablo Werlang",
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.21.2",
+        "nodemon": "^3.1.9"
+    }
+}
