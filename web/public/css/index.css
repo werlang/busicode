@@ -1,0 +1,465 @@
+/* Base styles and variables */
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2ecc71;
+  --accent-color: #f39c12;
+  --danger-color: #e74c3c;
+  --text-color: #333;
+  --light-text: #f8f9fa;
+  --light-bg: #f8f9fa;
+  --dark-bg: #343a40;
+  --border-radius: 8px;
+  --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  --card-padding: 20px;
+  --transition: all 0.3s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--light-bg);
+  padding-bottom: 2rem;
+}
+
+/* Header and footer */
+header, footer {
+  background-color: var(--primary-color);
+  color: var(--light-text);
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  padding: 0.8rem 0;
+  background-color: var(--dark-bg);
+  font-size: 0.9rem;
+}
+
+/* Estilo para o header e navegação */
+.main-header {
+  background-color: var(--primary-color);
+  color: var(--light-text);
+  padding: 1rem 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+
+.main-nav {
+  background-color: var(--dark-bg);
+  padding: 0.5rem 0;
+}
+
+.main-nav ul {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.main-nav li {
+  margin: 0 1rem;
+}
+
+.nav-link {
+  color: var(--light-text);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  transition: background-color 0.3s ease;
+  display: block;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-link.active {
+  background-color: var(--primary-color);
+  font-weight: bold;
+}
+
+/* Main content */
+main {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+/* Container and section styles */
+.container {
+  margin-bottom: 2.5rem;
+}
+
+h2 {
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+}
+
+h3 {
+  color: var(--secondary-color);
+  margin-bottom: 1rem;
+}
+
+/* Card styles */
+.card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: var(--card-padding);
+  margin-bottom: 1.5rem;
+}
+
+.card-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Form elements */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+select[multiple] {
+  height: 150px;
+}
+
+/* Buttons */
+button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+button:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+}
+
+/* Student and company cards */
+.student-card, .company-card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1rem;
+}
+
+.company-card {
+  border-left: 4px solid var(--secondary-color);
+}
+
+.company-card h4 {
+  color: var(--secondary-color);
+  margin-bottom: 0.5rem;
+}
+
+.company-finances {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.finance-item {
+  text-align: center;
+}
+
+.finance-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.budget {
+  color: var(--secondary-color);
+}
+
+.expenses {
+  color: var(--danger-color);
+}
+
+.profit {
+  color: var(--accent-color);
+}
+
+/* Utility classes */
+.hidden {
+  display: none;
+}
+
+/* Dynamic elements */
+.student-list {
+  margin-top: 10px;
+  list-style: none;
+  padding: 0;
+}
+
+.student-list-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.student-name {
+  font-weight: normal;
+}
+
+.student-balance {
+  color: var(--secondary-color);
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.delete-button {
+  background-color: var(--danger-color);
+  margin-top: 10px;
+}
+
+.student-list-empty, .company-list-empty {
+  padding: 10px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Class and Company cards */
+.class-header, .company-header {
+  margin-bottom: 10px;
+}
+
+.company-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.expense-button {
+  background-color: var(--danger-color);
+}
+
+.revenue-button {
+  background-color: var(--secondary-color);
+}
+
+/* Students in companies */
+.company-students {
+  margin: 5px 0;
+}
+
+/* Contribuições de estudantes */
+.contribution-container {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #eee;
+  border-radius: var(--border-radius);
+  padding: 15px;
+  background-color: #f9f9f9;
+}
+
+.contribution-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+.contribution-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.contribution-name {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.contribution-input {
+  width: 120px;
+}
+
+.student-balance {
+  color: var(--secondary-color);
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.contribution-info {
+  font-style: italic;
+  color: #6c757d;
+  text-align: center;
+  padding: 10px;
+}
+
+/* Estilo para as seções */
+.app-section {
+  display: none;
+  padding: 2rem 0;
+}
+
+.app-section.active {
+  display: block;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.section-header h2 {
+  color: var(--primary-color);
+  display: inline-block;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--primary-color);
+}
+
+/* Products Management */
+.products-management {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.products-management h5 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.add-product-btn {
+  margin-bottom: 15px;
+  background-color: var(--accent-color);
+}
+
+.product-list {
+  margin-top: 10px;
+}
+
+.no-products {
+  text-align: center;
+  font-style: italic;
+  color: #6c757d;
+  padding: 10px;
+}
+
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.product-table th, 
+.product-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.product-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.edit-product-btn {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 5px 10px;
+  margin-right: 5px;
+  font-size: 0.85rem;
+}
+
+.delete-product-btn {
+  background-color: var(--danger-color);
+  color: white;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .card-container {
+    grid-template-columns: 1fr;
+  }
+  
+  main {
+    margin: 1rem auto;
+  }
+  
+  .card {
+    padding: 15px;
+  }
+  
+  .main-nav ul {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .main-nav li {
+    margin: 0.5rem 0;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .nav-link {
+    padding: 0.8rem 1rem;
+  }
+  
+  .product-table {
+    font-size: 0.9rem;
+  }
+  
+  .edit-product-btn,
+  .delete-product-btn {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+}
