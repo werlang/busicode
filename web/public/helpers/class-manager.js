@@ -12,7 +12,16 @@ import Modal from '../components/modal.js';
 export default class ClassManager {
     constructor() {
         this.storage = new Storage('busicode_classes');
-        this.classes = this.loadClasses();
+        this.loadClasses();
+    }
+    
+    /**
+     * Initialize the UI components
+     */
+    initialize() {
+        this.renderClassList();
+        document.querySelector('#create-class-btn').addEventListener('click', () => this.createClass());
+        document.querySelector('#import-students-btn').addEventListener('click', () => this.importStudents());
     }
 
     /**
@@ -25,6 +34,7 @@ export default class ClassManager {
         for (const className in classData) {
             classData[className] = classData[className].map(student => new Student(student.id, student.name, student.initialBalance));
         }
+        this.classes = classData;
         return classData;
     }
 
@@ -54,8 +64,9 @@ export default class ClassManager {
             
             Toast.show({ message: `Turma "${className}" criada com sucesso!`, type: 'success' });
             classNameInput.value = '';
-            this.renderClassList();
             document.dispatchEvent(new CustomEvent('classListUpdated'));
+            console.log(this.classes);
+            this.renderClassList();
             return true;
         }
         

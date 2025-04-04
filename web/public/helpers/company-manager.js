@@ -3,15 +3,37 @@
  * Manages companies and their finances in the BusiCode application
  */
 import Storage from './storage.js';
-import CompanyOperationsManager from '../model/company-operations-manager.js';
 import Company from '../model/company.js';
+import ClassManager from './class-manager.js';
+import Toast from '../components/toast.js';
 
 export default class CompanyManager {
-    constructor(classManager) {
+    constructor() {
         this.storage = new Storage('busicode_companies');
         this.companies = this.loadCompanies();
-        this.classManager = classManager;
+        this.classManager = new ClassManager();
         // this.companyOperationsManager = new CompanyOperationsManager(this.classManager);
+    }
+
+    /**
+     * Initialize the CompanyManager
+     * This method can be used to set up any necessary data or state
+     * @returns {void}
+     */
+    initialize() {
+        const createCompanyBtn = document.querySelector('#create-company-btn');
+        createCompanyBtn.addEventListener('click', () => this.createCompany());
+        
+        const companyClassSelect = document.querySelector('#company-class-select');
+        companyClassSelect.addEventListener('change', () => this.updateStudentSelect());
+        
+        const companyStudentsSelect = document.querySelector('#company-students');
+        companyStudentsSelect.addEventListener('change', () => this.updateStudentContributions());
+
+        this.updateClassSelect();
+
+        // Set up global event listeners
+        this.setupGlobalListeners();
     }
 
     /**
@@ -57,13 +79,70 @@ export default class CompanyManager {
      * @param {Object} memberContributions - Object mapping member IDs to their contributions
      * @returns {Company} The created company
      */
-    createCompany(name, classroomName, memberContributions) {
+    createCompany() {
+
+        const classNameInput = document.querySelector('#company-class-select');
+        const className = classNameInput.value;
+        const companyNameInput = document.querySelector('#company-name');
+        const companyName = companyNameInput.value;
+        const companyStudentsSelect = document.querySelector('#company-students');
+        
+        // Get selected student IDs
+        const selectedStudentIds = Array.from(companyStudentsSelect.selectedOptions).map(option => option.value);
+        
+        if (!className) {
+            Toast.show({ message: 'Por favor, selecione uma turma.', type: 'error' });
+            return;
+        }
+        
+        if (!companyName) {
+            Toast.show({ message: 'Por favor, insira um nome para a empresa.', type: 'error' });
+            return;
+        }
+        
+        if (selectedStudentIds.length === 0) {
+            Toast.show({ message: 'Por favor, selecione pelo menos um aluno para a empresa.', type: 'error' });
+            return;
+        }
+        
+        // Coletar as contribuições individuais
+        const memberContributions = {};
+        let totalContribution = 0;
+        const students = this.classManager.getStudents(className);
+        
+        // Verificar se cada aluno tem saldo suficiente para sua contribuição
+        let insufficientFunds = false;
+        
+        selectedStudentIds.forEach(studentId => {
+            const contributionInput = document.querySelector(`#contribution-${studentId}`);
+            if (!contributionInput) return;
+            
+            const contribution = parseFloat(contributionInput.value) || 0;
+            memberContributions[studentId] = contribution;
+            totalContribution += contribution;
+            
+            // Verificar se o aluno tem saldo suficiente
+            const student = students.find(s => s.id === studentId);
+            if (student && contribution > student.currentBalance) {
+                insufficientFunds = true;
+                Toast.show({ message: `Aluno ${student.name} não tem saldo suficiente para contribuir R$ ${contribution.toFixed(2)}`, type: 'error' });
+            }
+        });
+        
+        if (insufficientFunds) return;
+        
+        if (totalContribution <= 0) {
+            Toast.show({ message: 'É necessário que pelo menos um aluno faça uma contribuição para a empresa.', type: 'error' });
+            return;
+        }
+        
+        // Criar a empresa com as contribuições individuais
         const id = `company_${Date.now()}`;
-        const company = new Company(id, name, classroomName, memberContributions);
+        const company = new Company(id, companyName, className, memberContributions);
         
         // Atualizar o saldo dos alunos deduzindo suas contribuições
         Object.entries(memberContributions).forEach(([studentId, contribution]) => {
-            const classStudents = this.classManager.getStudents(classroomName);
+            const classStudents = this.classManager.getStudents(className);
             const student = classStudents.find(s => s.id === studentId);
             if (student) {
                 student.deductBalance(contribution);
@@ -72,6 +151,28 @@ export default class CompanyManager {
         
         this.companies[id] = company;
         this.saveCompanies();
+        
+        Toast.show({ message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`, type: 'success' });
+        
+        // Reset form
+        companyNameInput.value = '';
+        companyStudentsSelect.selectedIndex = -1;
+
+        const studentContributionsContainer = document.querySelector('#student-contributions');
+        studentContributionsContainer.innerHTML = '';
+        
+        const info = document.createElement('p');
+        info.className = 'contribution-info';
+        info.textContent = 'Selecione os alunos para definir as contribuições individuais';
+        studentContributionsContainer.appendChild(info);
+        
+        // Notify other components that a company has been created
+        document.dispatchEvent(new CustomEvent('companyCreated', { 
+            detail: { 
+                companyId: company.id,
+                className: className
+            } 
+        }));
         
         return company;
     }
@@ -271,5 +372,162 @@ export default class CompanyManager {
         if (!company) return null;
         
         return company.getProducts();
+    }
+
+    /**
+     * Update class select dropdown for company creation
+     */
+    updateClassSelect() {
+        this.classManager.loadClasses();
+        const classNames = this.classManager.getClassNames();
+        
+        // Store the current selection
+        const companyClassSelect = document.querySelector('#company-class-select');
+        const currentSelection = companyClassSelect.value;
+        
+        // Clear options except the placeholder
+        while (companyClassSelect.options.length > 1) {
+            companyClassSelect.options.remove(1);
+        }
+        
+        // Add class options
+        classNames.forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            companyClassSelect.appendChild(option);
+        });
+        
+        // Restore selection if possible
+        if (classNames.includes(currentSelection)) {
+            companyClassSelect.value = currentSelection;
+        }
+        
+        // Update student select based on the current class
+        this.updateStudentSelect();
+    }
+
+    /**
+     * Update student select dropdown based on selected class
+     */
+    updateStudentSelect() {
+        const companyClassSelect = document.querySelector('#company-class-select');
+        const className = companyClassSelect.value;
+        const students = className ? this.classManager.getStudents(className) : [];
+        
+        // Clear options
+        const companyStudentsSelect = document.querySelector('#company-students');
+        companyStudentsSelect.innerHTML = '';
+        
+        // Add student options
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            companyStudentsSelect.appendChild(option);
+        });
+        
+        // Reset contributions area
+        const studentContributionsContainer = document.querySelector('#student-contributions');
+        studentContributionsContainer.innerHTML = '';
+        const info = document.createElement('p');
+        info.className = 'contribution-info';
+        info.textContent = 'Selecione os alunos para definir as contribuições individuais';
+        studentContributionsContainer.appendChild(info);
+    }
+
+    /**
+     * Update student contributions fields when students are selected
+     */
+    updateStudentContributions() {
+        const companyClassSelect = document.querySelector('#company-class-select');
+        const companyStudentsSelect = document.querySelector('#company-students');
+        const selectedStudentIds = Array.from(companyStudentsSelect.selectedOptions).map(option => option.value);
+        const className = companyClassSelect.value;
+        const students = this.classManager.getStudents(className);
+        
+        // Limpar o container de contribuições
+        const studentContributionsContainer = document.querySelector('#student-contributions');
+        studentContributionsContainer.innerHTML = '';
+        
+        if (selectedStudentIds.length === 0) {
+            const info = document.createElement('p');
+            info.className = 'contribution-info';
+            info.textContent = 'Selecione os alunos para definir as contribuições individuais';
+            studentContributionsContainer.appendChild(info);
+            return;
+        }
+        
+        // Criar container para as contribuições
+        const contributionContainer = document.createElement('div');
+        contributionContainer.className = 'contribution-container';
+        
+        const title = document.createElement('div');
+        title.className = 'contribution-title';
+        title.textContent = 'Contribuições para a Empresa:';
+        contributionContainer.appendChild(title);
+        
+        // Adicionar campos para cada estudante selecionado
+        selectedStudentIds.forEach(studentId => {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const contributionItem = document.createElement('div');
+            contributionItem.className = 'contribution-item';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'contribution-name';
+            nameSpan.textContent = student.name;
+            
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.step = '0.01';
+            input.max = student.currentBalance;
+            input.placeholder = '0.00';
+            input.className = 'contribution-input';
+            input.id = `contribution-${studentId}`;
+            input.value = '0';
+            
+            const balanceSpan = document.createElement('span');
+            balanceSpan.className = 'student-balance';
+            balanceSpan.textContent = `Saldo: R$ ${student.currentBalance.toFixed(2)}`;
+            
+            contributionItem.appendChild(nameSpan);
+            contributionItem.appendChild(input);
+            contributionItem.appendChild(balanceSpan);
+            contributionContainer.appendChild(contributionItem);
+        });
+        
+        studentContributionsContainer.appendChild(contributionContainer);
+    }
+
+    /**
+     * Set up global event listeners from other managers
+     */
+    setupGlobalListeners() {
+        // Listen for class list updates from SetupManager
+        document.addEventListener('classSelectsUpdated', () => {
+            this.updateClassSelect();
+        });
+        
+        // // Listen for student list updates from SetupManager
+        // document.addEventListener('studentListUpdated', (event) => {
+        //     if (event.detail && event.detail.className === this.companyClassSelect.value) {
+        //         this.updateStudentSelect();
+        //     }
+        // });
+        
+        // // Listen for class deletion from SetupManager
+        // document.addEventListener('classDeleted', (event) => {
+        //     if (event.detail && event.detail.className === this.companyClassSelect.value) {
+        //         this.companyNameInput.value = '';
+        //         this.studentContributionsContainer.innerHTML = '';
+        //         const info = document.createElement('p');
+        //         info.className = 'contribution-info';
+        //         info.textContent = 'Selecione os alunos para definir as contribuições individuais';
+        //         this.studentContributionsContainer.appendChild(info);
+        //     }
+        // });
     }
 }
