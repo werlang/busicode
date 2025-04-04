@@ -7,7 +7,6 @@
 // Import all necessary classes
 import ClassManager from './helpers/class-manager.js';
 import CompanyManager from './helpers/company-manager.js';
-import CompanyCreationManager from './model/company-creation-manager.js';
 import CompanyOperationsManager from './model/company-operations-manager.js';
 import NavigationManager from './components/navigation-manager.js';
 import ProductLaunchManager from './model/product-launch-manager.js';
@@ -17,7 +16,7 @@ new ClassManager().initialize();
 new CompanyManager().initialize();
 
 // Initialize navigation manager
-const navigationManager = new NavigationManager();
+new NavigationManager();
 
 // Initialize specialized UI managers with clear separation of concerns
 // const companyCreationManager = new CompanyCreationManager(classManager, companyManager);

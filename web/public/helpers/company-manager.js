@@ -6,13 +6,13 @@ import Storage from './storage.js';
 import Company from '../model/company.js';
 import ClassManager from './class-manager.js';
 import Toast from '../components/toast.js';
+import Modal from '../components/modal.js';
 
 export default class CompanyManager {
     constructor() {
         this.storage = new Storage('busicode_companies');
         this.companies = this.loadCompanies();
         this.classManager = new ClassManager();
-        // this.companyOperationsManager = new CompanyOperationsManager(this.classManager);
     }
 
     /**
@@ -31,7 +31,14 @@ export default class CompanyManager {
         companyStudentsSelect.addEventListener('change', () => this.updateStudentContributions());
 
         this.updateClassSelect();
+        this.updateCompanySelect();
 
+        // Listen for changes on the company filter select to update company cards
+        const companyFilterSelect = document.querySelector('#company-filter-select');
+        if (companyFilterSelect) {
+            companyFilterSelect.addEventListener('change', () => this.renderCompanyList(companyFilterSelect.value));
+        }
+                                                            
         // Set up global event listeners
         this.setupGlobalListeners();
     }
@@ -231,6 +238,7 @@ export default class CompanyManager {
         if (this.companies[id]) {
             delete this.companies[id];
             this.saveCompanies();
+            this.renderCompanyList();
             return true;
         }
         return false;
@@ -437,6 +445,30 @@ export default class CompanyManager {
     }
 
     /**
+     * Update company select dropdown for company selection
+     */
+    updateCompanySelect() {
+        const classSelect = document.querySelector('#company-filter-select');
+        const classNames = Object.values(this.companies).map(company => company.classroomName).filter((value, index, self) => self.indexOf(value) === index);
+
+        // Clear options
+        classSelect.innerHTML = '';
+        
+        // Add company options
+        classNames.forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            classSelect.appendChild(option);
+        });
+
+        // Render list of companies
+        this.renderCompanyList(classSelect.value);
+    }
+
+    
+
+    /**
      * Update student contributions fields when students are selected
      */
     updateStudentContributions() {
@@ -510,6 +542,11 @@ export default class CompanyManager {
         document.addEventListener('classSelectsUpdated', () => {
             this.updateClassSelect();
         });
+
+        // Listen for company creation events
+        document.addEventListener('companyCreated', (event) => {
+            this.updateCompanySelect();
+        });
         
         // // Listen for student list updates from SetupManager
         // document.addEventListener('studentListUpdated', (event) => {
@@ -529,5 +566,121 @@ export default class CompanyManager {
         //         this.studentContributionsContainer.appendChild(info);
         //     }
         // });
+    }
+
+    /**
+     * Render the list of companies
+     * @param {string} className - Optional filter by class name
+     */
+    renderCompanyList(className = null) {
+        const companiesList = document.querySelector('#companies-list');
+        if (!companiesList) return;
+        companiesList.innerHTML = '';
+
+        className = className || document.querySelector('#company-filter-select').value;
+        const companies = this.getCompaniesForClass(className);
+
+        if (companies.length === 0) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'company-list-empty';
+            emptyMessage.textContent = 'Nenhuma empresa cadastrada.';
+            companiesList.appendChild(emptyMessage);
+            return;
+        }
+
+        companies.forEach(company => {
+            const companyCard = document.createElement('div');
+            companyCard.className = 'card company-card';
+
+            // Get student names for this company
+            const students = company.memberIds.map(id => {
+                const classStudents = this.classManager.getStudents(company.classroomName);
+                const student = classStudents.find(s => s.id === id);
+                return student ? student.name : 'Aluno não encontrado';
+            });
+
+            const companyContent = document.createElement('div');
+            companyContent.className = 'company-header';
+            companyContent.innerHTML = `
+                    <h4>${company.name}</h4>
+                    <p><strong>Turma:</strong> ${company.classroomName}</p>
+                    <p class="company-students"><strong>Alunos:</strong> ${students.join(', ')}</p>
+                    <div class="company-finances">
+                        <div class="finance-item">
+                            <div>Orçamento</div>
+                            <div class="finance-value budget">R$ ${company.currentBudget.toFixed(2)}</div>
+                        </div>
+                        <div class="finance-item">
+                            <div>Despesas</div>
+                            <div class="finance-value expenses">R$ ${company.getTotalExpenses().toFixed(2)}</div>
+                        </div>
+                        <div class="finance-item">
+                            <div>Lucro</div>
+                            <div class="finance-value profit">R$ ${company.getProfit().toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+
+            companyCard.appendChild(companyContent);
+
+            // // Add products management section
+            // const productsContainer = document.createElement('div');
+            // productsContainer.className = 'products-management';
+            // productsContainer.innerHTML = `
+            //         <h5>Produtos</h5>
+            //         <button class="add-product-btn">+ Adicionar Produto</button>
+            //         <div class="product-list"></div>
+            //     `;
+
+            // // Add event listener to add product button
+            // productsContainer.querySelector('.add-product-btn').addEventListener('click', () => {
+            //     this.showProductModal(company);
+            // });
+
+            // companyCard.appendChild(productsContainer);
+
+            // // Render products list
+            // const productList = productsContainer.querySelector('.product-list');
+            // this.renderProductList(company, productList);
+
+            // Add expense and revenue buttons (these will double as fund management)
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'company-actions';
+
+            const addExpenseBtn = document.createElement('button');
+            addExpenseBtn.textContent = 'Adicionar Despesa';
+            addExpenseBtn.className = 'expense-button';
+            addExpenseBtn.addEventListener('click', () => this.showFinanceModal(company, 'expense'));
+
+            const addRevenueBtn = document.createElement('button');
+            addRevenueBtn.textContent = 'Adicionar Receita';
+            addRevenueBtn.className = 'revenue-button';
+            addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
+
+            buttonContainer.appendChild(addExpenseBtn);
+            buttonContainer.appendChild(addRevenueBtn);
+            companyCard.appendChild(buttonContainer);
+
+            // Delete company button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Excluir Empresa';
+            deleteBtn.className = 'delete-button';
+            deleteBtn.addEventListener('click', () => {
+                Modal.show({
+                    title: 'Confirmar Exclusão',
+                    message: `Tem certeza que deseja excluir a empresa "${company.name}"?`,
+                    confirmText: 'Excluir',
+                    cancelText: 'Cancelar',
+                    type: 'danger',
+                    onConfirm: () => {
+                        this.deleteCompany(company.id);
+                        Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
+                    }
+                });
+            });
+
+            companyCard.appendChild(deleteBtn);
+            companiesList.appendChild(companyCard);
+        });
     }
 }
