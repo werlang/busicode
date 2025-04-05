@@ -246,14 +246,13 @@ export default class CompanyManager {
 
     /**
      * Add an expense to a company
-     * @param {string} companyId - Company ID
+     * @param {string} company - Company object
      * @param {string} description - Expense description
      * @param {number} amount - Expense amount
      * @param {string} date - Expense date
      * @returns {Object} The created expense or null if company not found
      */
-    addExpense(companyId, description, amount, date) {
-        const company = this.companies[companyId];
+    addExpense(company, description, amount, date) {
         if (!company) return null;
         
         const expense = company.addExpense(description, amount, date);
@@ -264,14 +263,13 @@ export default class CompanyManager {
 
     /**
      * Add revenue to a company
-     * @param {string} companyId - Company ID
+     * @param {string} company - Company object
      * @param {string} description - Revenue description
      * @param {number} amount - Revenue amount
      * @param {string} date - Revenue date
      * @returns {Object} The created revenue or null if company not found
      */
-    addRevenue(companyId, description, amount, date) {
-        const company = this.companies[companyId];
+    addRevenue(company, description, amount, date) {
         if (!company) return null;
         
         const revenue = company.addRevenue(description, amount, date);
@@ -681,6 +679,64 @@ export default class CompanyManager {
 
             companyCard.appendChild(deleteBtn);
             companiesList.appendChild(companyCard);
+        });
+    }
+
+    /**
+     * Show a modal to add expense or revenue
+     * @param {Object} company - The company
+     * @param {string} type - 'expense' or 'revenue'
+     */
+    showFinanceModal(company, type) {
+        const isExpense = type === 'expense';
+        const title = isExpense ? 'Adicionar Despesa' : 'Adicionar Receita';
+        
+        Modal.showInput({
+            title: title,
+            fields: [
+                {
+                    id: 'description',
+                    label: 'Descrição:',
+                    type: 'text',
+                    placeholder: `Descreva a ${isExpense ? 'despesa' : 'receita'}`,
+                    required: true
+                },
+                {
+                    id: 'amount',
+                    label: 'Valor (R$):',
+                    type: 'number',
+                    placeholder: '0.00',
+                    required: true
+                },
+                {
+                    id: 'date',
+                    label: 'Data:',
+                    type: 'date',
+                    value: new Date().toISOString().split('T')[0],
+                    required: true
+                }
+            ],
+            confirmText: 'Salvar',
+            cancelText: 'Cancelar',
+            onConfirm: (values) => {
+                const { description, amount, date } = values;
+                
+                if (isNaN(amount) || parseFloat(amount) <= 0) {
+                    Toast.show({ message: 'Por favor, insira um valor válido.', type: 'error' });
+                    return false;
+                }
+                
+                if (isExpense) {
+                    this.addExpense(company, description, amount, date);
+                    Toast.show({ message: 'Despesa adicionada com sucesso!', type: 'success' });
+                } else {
+                    this.addRevenue(company, description, amount, date);
+                    Toast.show({ message: 'Receita adicionada com sucesso!', type: 'success' });
+                }
+                
+                this.renderCompanyList();
+                return true;
+            }
         });
     }
 }

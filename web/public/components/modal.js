@@ -267,8 +267,8 @@ export default class Modal {
                 }
             });
             
-            onConfirm(values);
-            closeModal();
+            const close = onConfirm(values);
+            if (close) closeModal();
         });
         
         cancelButton.addEventListener('click', () => {
