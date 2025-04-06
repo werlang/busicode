@@ -155,6 +155,14 @@ export default class CompanyManager {
                 student.deductBalance(contribution);
             }
         });
+        this.classManager.saveClasses();
+
+        document.dispatchEvent(new CustomEvent('studentBalanceUpdated', {
+            detail: {
+                studentIds: selectedStudentIds,
+                className: className
+            }
+        }));
         
         this.companies[id] = company;
         this.saveCompanies();
@@ -198,6 +206,7 @@ export default class CompanyManager {
      * @returns {Company[]} Array of all companies
      */
     getAllCompanies() {
+        this.companies = this.loadCompanies();
         return Object.values(this.companies);
     }
 
@@ -238,6 +247,14 @@ export default class CompanyManager {
         if (this.companies[id]) {
             delete this.companies[id];
             this.saveCompanies();
+
+            // Notify other components that a company has been deleted
+            document.dispatchEvent(new CustomEvent('companyDeleted', {
+                detail: { 
+                    companyId: id
+                }
+            }));
+
             this.renderCompanyList();
             return true;
         }
@@ -310,75 +327,7 @@ export default class CompanyManager {
         this.saveCompanies();
         
         return expense;
-    }
-    
-    /**
-     * Add a product to a company
-     * @param {string} companyId - Company ID
-     * @param {string} name - Product name
-     * @param {string} description - Product description
-     * @param {number} price - Selling price
-     * @param {number} costPerUnit - Cost per unit (optional)
-     * @returns {Object} The created product or null if company not found
-     */
-    addProduct(companyId, name, description, price) {
-        const company = this.companies[companyId];
-        if (!company) return null;
-        
-        const product = company.addProduct(name, description, price);
-        this.saveCompanies();
-        
-        return product;
-    }
-    
-    /**
-     * Update a product
-     * @param {string} companyId - Company ID
-     * @param {string} productId - Product ID
-     * @param {Object} updates - Updates to apply to the product
-     * @returns {boolean} Whether the update was successful
-     */
-    updateProduct(companyId, productId, updates) {
-        const company = this.companies[companyId];
-        if (!company) return false;
-        
-        const result = company.updateProduct(productId, updates);
-        if (result) {
-            this.saveCompanies();
-        }
-        
-        return result;
-    }
-    
-    /**
-     * Delete a product
-     * @param {string} companyId - Company ID
-     * @param {string} productId - Product ID
-     * @returns {boolean} Whether the deletion was successful
-     */
-    deleteProduct(companyId, productId) {
-        const company = this.companies[companyId];
-        if (!company) return false;
-        
-        const result = company.deleteProduct(productId);
-        if (result) {
-            this.saveCompanies();
-        }
-        
-        return result;
-    }
-    
-    /**
-     * Get all products for a company
-     * @param {string} companyId - Company ID
-     * @returns {Array} List of all products or null if company not found
-     */
-    getProducts(companyId) {
-        const company = this.companies[companyId];
-        if (!company) return null;
-        
-        return company.getProducts();
-    }
+    }    
 
     /**
      * Update class select dropdown for company creation
@@ -464,8 +413,6 @@ export default class CompanyManager {
         this.renderCompanyList(classSelect.value);
     }
 
-    
-
     /**
      * Update student contributions fields when students are selected
      */
@@ -541,29 +488,33 @@ export default class CompanyManager {
             this.updateClassSelect();
         });
 
+        document.addEventListener('classDeleted', (event) => {
+            const className = event.detail.className;
+            // Remove companies associated with the deleted class
+            Object.keys(this.companies).forEach(companyId => {
+                const company = this.companies[companyId];
+                if (company.classroomName === className) {
+                    // remove products from the company
+                    document.dispatchEvent(new CustomEvent('companyDeleted', {
+                        detail: {
+                            companyId: companyId,
+                            className: className
+                        }
+                    }));
+
+                    delete this.companies[companyId];
+                }
+            });
+            this.saveCompanies();
+            this.updateClassSelect();
+            this.updateCompanySelect();
+        });
+
         // Listen for company creation events
         document.addEventListener('companyCreated', (event) => {
             this.updateCompanySelect();
         });
         
-        // // Listen for student list updates from SetupManager
-        // document.addEventListener('studentListUpdated', (event) => {
-        //     if (event.detail && event.detail.className === this.companyClassSelect.value) {
-        //         this.updateStudentSelect();
-        //     }
-        // });
-        
-        // // Listen for class deletion from SetupManager
-        // document.addEventListener('classDeleted', (event) => {
-        //     if (event.detail && event.detail.className === this.companyClassSelect.value) {
-        //         this.companyNameInput.value = '';
-        //         this.studentContributionsContainer.innerHTML = '';
-        //         const info = document.createElement('p');
-        //         info.className = 'contribution-info';
-        //         info.textContent = 'Selecione os alunos para definir as contribuições individuais';
-        //         this.studentContributionsContainer.appendChild(info);
-        //     }
-        // });
     }
 
     /**
@@ -620,26 +571,6 @@ export default class CompanyManager {
                 `;
 
             companyCard.appendChild(companyContent);
-
-            // // Add products management section
-            // const productsContainer = document.createElement('div');
-            // productsContainer.className = 'products-management';
-            // productsContainer.innerHTML = `
-            //         <h5>Produtos</h5>
-            //         <button class="add-product-btn">+ Adicionar Produto</button>
-            //         <div class="product-list"></div>
-            //     `;
-
-            // // Add event listener to add product button
-            // productsContainer.querySelector('.add-product-btn').addEventListener('click', () => {
-            //     this.showProductModal(company);
-            // });
-
-            // companyCard.appendChild(productsContainer);
-
-            // // Render products list
-            // const productList = productsContainer.querySelector('.product-list');
-            // this.renderProductList(company, productList);
 
             // Add expense and revenue buttons (these will double as fund management)
             const buttonContainer = document.createElement('div');
