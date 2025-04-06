@@ -125,6 +125,15 @@ h3 {
   box-shadow: var(--box-shadow);
   padding: var(--card-padding);
   margin-bottom: 1.5rem;
+  transition: all 0.3s ease;
+  border-left: 4px solid var(--primary-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
 }
 
 .card-container {
@@ -238,50 +247,164 @@ button:hover {
 
 /* Dynamic elements */
 .student-list {
-  margin-top: 10px;
+  margin-top: 15px;
   list-style: none;
   padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: var(--border-radius);
+  border: 1px solid #eee;
+  background-color: #f9f9f9;
 }
 
 .student-list-item {
-  padding: 8px 0;
+  padding: 10px 15px;
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background-color 0.2s ease;
+  background-color: white;
+}
+
+.student-list-item:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+.student-list-item:last-child {
+  border-bottom: none;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
 }
 
 .student-name {
-  font-weight: normal;
+  font-weight: 500;
+  color: var(--text-color);
 }
 
 .student-balance {
   color: var(--secondary-color);
-  font-weight: bold;
+  font-weight: 600;
   margin-left: 10px;
+  padding: 3px 8px;
+  background-color: rgba(46, 204, 113, 0.1);
+  border-radius: 4px;
+  min-width: 80px;
+  text-align: right;
 }
 
-.delete-button {
+.student-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.balance-action-button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 16px;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.balance-action-button:hover {
+  transform: scale(1.1);
+}
+
+.add-balance {
+  background-color: var(--secondary-color);
+}
+
+.add-balance:hover {
+  background-color: #27ae60;
+}
+
+.remove-balance {
+  background-color: var(--accent-color);
+}
+
+.remove-balance:hover {
+  background-color: #d35400;
+}
+
+.remove-student {
   background-color: var(--danger-color);
-  margin-top: 10px;
+}
+
+.remove-student:hover {
+  background-color: #c0392b;
 }
 
 .student-list-empty, .company-list-empty {
-  padding: 10px;
+  padding: 15px;
   text-align: center;
   color: #6c757d;
   font-style: italic;
+  background-color: white;
+  border-radius: var(--border-radius);
+  margin-top: 10px;
 }
 
 /* Class and Company cards */
 .class-header, .company-header {
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.class-header h4 {
+  color: var(--primary-color);
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
 }
 
 .company-actions {
   display: flex;
   gap: 10px;
   margin-top: 10px;
+}
+
+.class-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.bulk-action-button {
+  background-color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 15px;
+  font-weight: 500;
+}
+
+.bulk-action-button:hover {
+  background-color: #d35400;
+}
+
+.add-student-button {
+  background-color: var(--secondary-color);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 15px;
+  font-weight: 500;
+}
+
+.add-student-button:hover {
+  background-color: #27ae60;
 }
 
 .expense-button {
@@ -585,6 +708,7 @@ button:disabled {
   list-style: none;
   padding: 0;
   margin: 0;
+  margin-bottom: 10px;
 }
 
 .activity-item {
@@ -757,4 +881,21 @@ button:disabled {
     width: 100%;
     border-radius: var(--border-radius);
   }
+}
+
+.delete-button {
+  background-color: var(--danger-color);
+  margin-top: 15px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.delete-button:hover {
+  background-color: #c0392b;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
 }
