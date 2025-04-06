@@ -2,6 +2,8 @@
  * Company Class
  * Represents a company in the BusiCode application with financial tracking
  */
+import Product from './product.js';
+
 export default class Company {
     constructor(id, name, classroomName, memberContributions) {
         this.id = id;
@@ -19,7 +21,6 @@ export default class Company {
         this.memberIds = Object.keys(this.memberContributions);
         this.expenses = [];
         this.revenues = [];
-        this.products = []; // Array to store company products
     }
 
     /**
@@ -169,82 +170,5 @@ export default class Company {
      */
     removeFunds(amount, description = 'Fund removal') {
         return this.addExpense(description, amount);
-    }
-    
-    /**
-     * Add a product to the company
-     * @param {string} name - Product name
-     * @param {string} description - Product description
-     * @param {number} price - Selling price
-     * @param {number} costPerUnit - Cost per unit
-     * @returns {Object} The created product
-     */
-    addProduct(name, description, price) {
-        const product = {
-            id: `prod_${Date.now()}`,
-            name,
-            description,
-            price: parseFloat(price),
-            createdAt: new Date().toISOString()
-        };
-        
-        this.products.push(product);
-        return product;
-    }
-    
-    /**
-     * Update an existing product
-     * @param {string} productId - Product ID
-     * @param {Object} updates - Updates to apply to the product
-     * @returns {boolean} Whether the update was successful
-     */
-    updateProduct(productId, updates) {
-        const productIndex = this.products.findIndex(p => p.id === productId);
-        if (productIndex === -1) return false;
-        
-        this.products[productIndex] = {
-            ...this.products[productIndex],
-            ...updates
-        };
-        
-        return true;
-    }
-    
-    /**
-     * Delete a product
-     * @param {string} productId - Product ID
-     * @returns {boolean} Whether the deletion was successful
-     */
-    deleteProduct(productId) {
-        const initialLength = this.products.length;
-        this.products = this.products.filter(p => p.id !== productId);
-        return this.products.length < initialLength;
-    }
-    
-    /**
-     * Get all products
-     * @returns {Array} List of all products
-     */
-    getProducts() {
-        return this.products;
-    }
-
-    /**
-     * Get a product by ID
-     * @param {string} productId - Product ID
-     * @returns {Object|null} The product or null if not found
-     */
-    getProduct(productId) {
-        return this.products.find(p => p.id === productId) || null;
-    }
-
-    /**
-     * Calculate potential profit from products
-     * @returns {number} Total potential profit
-     */
-    getPotentialProductProfit() {
-        return this.products.reduce((sum, product) => {
-            return sum + (product.price - product.costPerUnit);
-        }, 0);
     }
 }

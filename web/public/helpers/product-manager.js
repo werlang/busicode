@@ -6,6 +6,7 @@ import Storage from './storage.js';
 import CompanyManager from './company-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
+import Product from '../model/product.js';
 
 export default class ProductManager {
     constructor() {
@@ -28,7 +29,8 @@ export default class ProductManager {
      * @returns {Array} An array of launched products
      */
     loadLaunchedProducts() {
-        return this.storage.loadData() || [];
+        const data = this.storage.loadData() || [];
+        return data.map(product => new Product(product.id, product.name, product.price, product.companyId));
     }
 
     /**
@@ -136,23 +138,14 @@ export default class ProductManager {
             return;
         }
         
-        // Create product in company
-        const product = company.addProduct(productName, '', productPrice);
-        this.companyManager.saveCompanies();
-        
         // Add product to launched products list
-        const launchedProduct = {
-            id: `launch_${Date.now()}`,
-            companyId: company.id,
-            companyName: company.name,
-            productId: product.id,
-            productName: product.name,
-            price: product.price,
-            sales: 0,
-            total: 0,
-            launchedAt: new Date().toISOString()
-        };
-        
+        const launchedProduct = new Product(
+            `launch_${Date.now()}`,
+            productName,
+            productPrice,
+            companyId
+        );
+
         this.launchedProducts.push(launchedProduct);
         this.saveLaunchedProducts();
         
@@ -175,7 +168,10 @@ export default class ProductManager {
     renderLaunchedProducts() {
         this.launchedProducts = this.loadLaunchedProducts();
 
-        document.querySelector('#apply-sales-btn').disabled = this.launchedProducts.length === 0;
+        const applySalesBtn = document.querySelector('#apply-sales-btn');
+        if (applySalesBtn) {
+            applySalesBtn.disabled = this.launchedProducts.length === 0;
+        }
 
         const launchProductsBody = document.querySelector('#launch-products-body');
         if (!launchProductsBody) return;
@@ -202,7 +198,7 @@ export default class ProductManager {
             
             // Company name
             const companyCell = document.createElement('td');
-            companyCell.textContent = product.companyName;
+            companyCell.textContent = this.companyManager.getCompany(product.companyId).name;
             
             // Price
             const priceCell = document.createElement('td');
@@ -210,23 +206,7 @@ export default class ProductManager {
             
             // Sales
             const salesCell = document.createElement('td');
-            if (sellingMode) {
-                const salesInput = document.createElement('input');
-                salesInput.type = 'number';
-                salesInput.min = '0';
-                salesInput.className = 'sales-input';
-                salesInput.value = product.sales || 0;
-                salesInput.dataset.productId = product.id;
-                salesInput.addEventListener('change', (e) => {
-                    const newSales = parseInt(e.target.value) || 0;
-                    product.sales = newSales;
-                    product.total = newSales * product.price;
-                    totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
-                });
-                salesCell.appendChild(salesInput);
-            } else {
-                salesCell.textContent = product.sales || 0;
-            }
+            salesCell.textContent = product.sales;
             
             // Total
             const totalCell = document.createElement('td');
@@ -307,22 +287,23 @@ export default class ProductManager {
             if (company) {
                 const productInCompany = company.getProduct(product.productId);
                 if (productInCompany) {
-                    productInCompany.sales += product.sales;
-                    productInCompany.total += product.total;
+                    // Use Product class methods to add sales
+                    productInCompany.addSales(product.sales);
                 }
             }
         });
         this.companyManager.saveCompanies();
+        
+        // Reset sales in the UI
         this.launchedProducts.forEach(product => {
             const salesInput = document.querySelector(`input[data-product-id="${product.id}"]`);
             if (salesInput) {
                 salesInput.value = 0;
-                product.sales = 0;
-                product.total = 0;
             }
         });
         this.saveLaunchedProducts();
         this.renderLaunchedProducts();
+        
         Toast.show({ 
             message: 'Vendas aplicadas com sucesso!', 
             type: 'success' 
