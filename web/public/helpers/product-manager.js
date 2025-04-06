@@ -164,6 +164,52 @@ export default class ProductManager {
     }
 
     /**
+     * Edit a product's price
+     * @param {string} productId - ID of the product to edit
+     */
+    editProductPrice(productId) {
+        const product = this.launchedProducts.find(p => p.id === productId);
+        if (!product) return;
+        
+        const company = this.companyManager.getCompany(product.companyId);
+        
+        Modal.showInput({
+            title: 'Editar Preço do Produto',
+            fields: [
+                {
+                    id: 'price',
+                    label: 'Novo Preço (R$):',
+                    type: 'number',
+                    placeholder: '0.00',
+                    value: product.price.toFixed(2),
+                    required: true
+                }
+            ],
+            confirmText: 'Salvar',
+            cancelText: 'Cancelar',
+            onConfirm: (values) => {
+                const newPrice = parseFloat(values.price);
+                
+                if (isNaN(newPrice) || newPrice <= 0) {
+                    Toast.show({ message: 'Por favor, insira um valor válido para o produto.', type: 'error' });
+                    return false;
+                }
+                
+                product.updatePrice(newPrice);
+                this.saveLaunchedProducts();
+                this.renderLaunchedProducts();
+                
+                Toast.show({ 
+                    message: `Preço do produto "${product.name}" atualizado para R$ ${newPrice.toFixed(2)}!`, 
+                    type: 'success' 
+                });
+                
+                return true;
+            }
+        });
+    }
+
+    /**
      * Render the list of launched products
      */
     renderLaunchedProducts() {
@@ -266,11 +312,18 @@ export default class ProductManager {
             // Actions
             const actionsCell = document.createElement('td');
             
+            // Edit price button
+            const editPriceBtn = document.createElement('button');
+            editPriceBtn.textContent = 'Editar Preço';
+            editPriceBtn.className = 'edit-product-btn';
+            editPriceBtn.addEventListener('click', () => this.editProductPrice(product.id));
+            actionsCell.appendChild(editPriceBtn);
+            
+            // Remove button
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remover';
             removeBtn.className = 'remove-btn';
             removeBtn.addEventListener('click', () => this.removeProduct(product.id));
-            
             actionsCell.appendChild(removeBtn);
             
             // Add cells to row
