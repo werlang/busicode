@@ -524,7 +524,6 @@ export default class CompanyManager {
                 company,
                 `Venda de produto ${productName}`,
                 sales * price,
-                new Date().toISOString().split('T')[0]
             );
             this.saveCompanies();
             this.renderCompanyList();
@@ -572,7 +571,7 @@ export default class CompanyManager {
                     <div class="company-finances">
                         <div class="finance-item">
                             <div>Receitas</div>
-                            <div class="finance-value budget">R$ ${company.currentBudget.toFixed(2)}</div>
+                            <div class="finance-value budget">R$ ${company.getTotalRevenues().toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
                             <div>Despesas</div>
@@ -586,6 +585,58 @@ export default class CompanyManager {
                 `;
 
             companyCard.appendChild(companyContent);
+
+            // Add activity history
+            const activityHistory = company.getActivityHistory();
+            if (activityHistory.length > 0) {
+                const historyContainer = document.createElement('div');
+                historyContainer.className = 'activity-history-container';
+                
+                const historyTitle = document.createElement('h5');
+                historyTitle.textContent = 'Histórico de Atividades';
+                historyTitle.className = 'activity-history-title';
+                historyContainer.appendChild(historyTitle);
+                
+                const historyList = document.createElement('ul');
+                historyList.className = 'activity-history-list';
+                
+                // Limit to 5 most recent activities
+                const recentActivities = activityHistory.slice(0, 5);
+                
+                recentActivities.forEach(activity => {
+                    const historyItem = document.createElement('li');
+                    historyItem.className = `activity-item activity-${activity.type}`;
+                    
+                    const dateFormatted = new Date(activity.date).toLocaleString('pt-BR');
+                    
+                    historyItem.innerHTML = `
+                        <div class="activity-info">
+                            <span class="activity-description">${activity.description}</span>
+                            <span class="activity-date">${dateFormatted}</span>
+                        </div>
+                        <span class="activity-amount">${activity.displayAmount}</span>
+                    `;
+                    
+                    historyList.appendChild(historyItem);
+                });
+                
+                // Add "View All" button if there are more than 5 activities
+                if (activityHistory.length > 5) {
+                    const viewAllItem = document.createElement('li');
+                    viewAllItem.className = 'view-all-item';
+                    
+                    const viewAllButton = document.createElement('button');
+                    viewAllButton.textContent = 'Ver Histórico Completo';
+                    viewAllButton.className = 'view-all-button';
+                    viewAllButton.addEventListener('click', () => this.showFullHistoryModal(company));
+                    
+                    viewAllItem.appendChild(viewAllButton);
+                    historyList.appendChild(viewAllItem);
+                }
+                
+                historyContainer.appendChild(historyList);
+                companyCard.appendChild(historyContainer);
+            }
 
             // Add expense and revenue buttons (these will double as fund management)
             const buttonContainer = document.createElement('div');
@@ -658,7 +709,7 @@ export default class CompanyManager {
                     id: 'date',
                     label: 'Data:',
                     type: 'date',
-                    value: new Date().toISOString().split('T')[0],
+                    value: new Date(),
                     required: true
                 }
             ],
@@ -683,6 +734,78 @@ export default class CompanyManager {
                 this.renderCompanyList();
                 return true;
             }
+        });
+    }
+
+    /**
+     * Show modal with full activity history
+     * @param {Object} company - The company
+     */
+    showFullHistoryModal(company) {
+        const activityHistory = company.getActivityHistory();
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'activity-history-modal';
+        
+        // Create table with all activities
+        const historyTable = document.createElement('table');
+        historyTable.className = 'data-table activity-history-table';
+        
+        // Table header
+        const tableHeader = document.createElement('thead');
+        tableHeader.innerHTML = `
+            <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+                <th>Tipo</th>
+            </tr>
+        `;
+        historyTable.appendChild(tableHeader);
+        
+        // Table body
+        const tableBody = document.createElement('tbody');
+        
+        activityHistory.forEach(activity => {
+            const row = document.createElement('tr');
+            row.className = `activity-row activity-${activity.type}`;
+            
+            const dateFormatted = new Date(activity.date).toLocaleDateString('pt-BR');
+            
+            // Date cell
+            const dateCell = document.createElement('td');
+            dateCell.textContent = dateFormatted;
+            row.appendChild(dateCell);
+            
+            // Description cell
+            const descriptionCell = document.createElement('td');
+            descriptionCell.textContent = activity.description;
+            row.appendChild(descriptionCell);
+            
+            // Amount cell
+            const amountCell = document.createElement('td');
+            amountCell.textContent = activity.displayAmount;
+            amountCell.className = `amount-cell amount-${activity.type}`;
+            row.appendChild(amountCell);
+            
+            // Type cell
+            const typeCell = document.createElement('td');
+            typeCell.textContent = activity.type === 'expense' ? 'Despesa' : 'Receita';
+            typeCell.className = `type-cell type-${activity.type}`;
+            row.appendChild(typeCell);
+            
+            tableBody.appendChild(row);
+        });
+        
+        historyTable.appendChild(tableBody);
+        modalContent.appendChild(historyTable);
+        
+        // Show the modal
+        Modal.show({
+            title: `Histórico completo - ${company.name}`,
+            message: modalContent.outerHTML,
+            confirmText: 'Fechar',
+            cancelText: null
         });
     }
 }

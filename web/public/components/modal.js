@@ -45,7 +45,7 @@ export default class Modal {
         modalBody.className = 'modal-body';
         
         const modalMessage = document.createElement('p');
-        modalMessage.textContent = message;
+        modalMessage.innerHTML = message;
         
         // Modal footer with buttons
         const modalFooter = document.createElement('div');

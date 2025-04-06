@@ -92,7 +92,7 @@ export default class Company {
             id: `exp_${Date.now()}`,
             description,
             amount: parseFloat(amount),
-            date: date || new Date().toISOString().split('T')[0]
+            date: date || new Date(),
         };
         
         this.expenses.push(expense);
@@ -111,7 +111,7 @@ export default class Company {
             id: `rev_${Date.now()}`,
             description,
             amount: parseFloat(amount),
-            date: date || new Date().toISOString().split('T')[0]
+            date: date || new Date(),
         };
         
         this.revenues.push(revenue);
@@ -170,5 +170,31 @@ export default class Company {
      */
     removeFunds(amount, description = 'Fund removal') {
         return this.addExpense(description, amount);
+    }
+
+    /**
+     * Get the company's activity history (expenses and revenues)
+     * @returns {Array} Combined and sorted array of expenses and revenues
+     */
+    getActivityHistory() {
+        // Combine expenses and revenues into a single array
+        const expenses = this.expenses.map(item => ({
+            ...item,
+            type: 'expense',
+            displayAmount: `-R$ ${item.amount.toFixed(2)}`
+        }));
+        
+        const revenues = this.revenues.map(item => ({
+            ...item,
+            type: 'revenue',
+            displayAmount: `+R$ ${item.amount.toFixed(2)}`
+        }));
+        
+        // Combine and sort by date (newest first)
+        const combined = [...expenses, ...revenues].sort((a, b) => {
+            return new Date(b.date) - new Date(a.date);
+        });
+        
+        return combined;
     }
 }
