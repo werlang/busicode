@@ -3,11 +3,17 @@
  * Represents a student in the BusiCode application
  */
 export default class Student {
-    constructor(id, name, initialBalance = 0) {
+    /**
+     * @param {string} id - Unique identifier for the student
+     * @param {string} name - Name of the student
+     * @param {number} initialBalance - Initial balance of the student
+     * @param {number} currentBalance - Current balance of the student
+     */
+    constructor(id, name, initialBalance = 0, currentBalance = 0) {
         this.id = id;
         this.name = name;
         this.initialBalance = parseFloat(initialBalance) || 0;
-        this.currentBalance = this.initialBalance;
+        this.currentBalance = parseFloat(currentBalance) || this.initialBalance;
     }
 
     /**
