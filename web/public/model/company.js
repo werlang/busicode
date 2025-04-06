@@ -228,7 +228,16 @@ export default class Company {
     getProducts() {
         return this.products;
     }
-    
+
+    /**
+     * Get a product by ID
+     * @param {string} productId - Product ID
+     * @returns {Object|null} The product or null if not found
+     */
+    getProduct(productId) {
+        return this.products.find(p => p.id === productId) || null;
+    }
+
     /**
      * Calculate potential profit from products
      * @returns {number} Total potential profit
