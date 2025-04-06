@@ -57,7 +57,8 @@ export default class CompanyManager {
                 companyData.id,
                 companyData.name,
                 companyData.classroomName,
-                companyData.memberContributions
+                companyData.memberContributions,
+                companyData.memberIds
             );
             
             // Restore expenses and revenues
@@ -147,6 +148,7 @@ export default class CompanyManager {
         const id = `company_${Date.now()}`;
         const company = new Company(id, companyName, className);
         company.addRevenue('Capital Inicial', totalContribution);
+        company.addMembers(selectedStudentIds);
         
         // Atualizar o saldo dos alunos deduzindo suas contribuições
         Object.entries(memberContributions).forEach(([studentId, contribution]) => {
@@ -166,6 +168,7 @@ export default class CompanyManager {
         }));
         
         this.companies[id] = company;
+        console.log(company);
         this.saveCompanies();
         
         Toast.show({ message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`, type: 'success' });
@@ -652,8 +655,24 @@ export default class CompanyManager {
             addRevenueBtn.className = 'revenue-button';
             addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
 
+            // Add distribute profits button
+            const distributeProfitsBtn = document.createElement('button');
+            distributeProfitsBtn.textContent = 'Distribuir Lucros';
+            distributeProfitsBtn.className = 'profits-button';
+            distributeProfitsBtn.title = 'Distribuir lucros para os membros da empresa';
+            distributeProfitsBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
+            
+            // Only enable the button if there are profits to distribute
+            if (company.getProfit() <= 0) {
+                distributeProfitsBtn.disabled = true;
+                distributeProfitsBtn.title = 'Não há lucros disponíveis para distribuir';
+            }
+            
+            distributeProfitsBtn.addEventListener('click', () => this.showDistributeProfitsModal(company));
+
             buttonContainer.appendChild(addExpenseBtn);
             buttonContainer.appendChild(addRevenueBtn);
+            buttonContainer.appendChild(distributeProfitsBtn);
             companyCard.appendChild(buttonContainer);
 
             // Delete company button
@@ -732,6 +751,112 @@ export default class CompanyManager {
                 }
                 
                 this.renderCompanyList();
+                return true;
+            }
+        });
+    }
+
+    /**
+     * Show a modal dialog for distributing profits to company members
+     * @param {Object} company - The company object
+     */
+    showDistributeProfitsModal(company) {
+        // Get current company members with their details
+        const students = company.memberIds.map(id => {
+            const classStudents = this.classManager.getStudents(company.classroomName);
+            return classStudents.find(s => s.id === id);
+        }).filter(student => student); // Filter out any undefined students
+        
+        if (students.length === 0) {
+            Toast.show({ message: 'Não há membros disponíveis para distribuir lucros.', type: 'warning' });
+            return;
+        }
+        
+        // Create modal content with student selection and amount inputs
+        const fields = [
+            {
+                id: 'studentId',
+                label: 'Selecione o membro:',
+                type: 'select',
+                options: students.map(student => ({
+                    value: student.id,
+                    text: `${student.name} (Saldo: R$ ${student.currentBalance.toFixed(2)})`
+                }))
+            },
+            {
+                id: 'amount',
+                label: 'Valor a distribuir (R$):',
+                type: 'number',
+                placeholder: '0.00',
+                required: true,
+                value: '0.00'
+            },
+            {
+                id: 'description',
+                label: 'Descrição:',
+                type: 'text',
+                placeholder: 'Distribuição de lucros',
+                value: 'Distribuição de lucros'
+            }
+        ];
+        
+        Modal.showInput({
+            title: `Distribuir Lucros - ${company.name}`,
+            message: `Lucro disponível: R$ ${company.getProfit().toFixed(2)}`,
+            fields,
+            confirmText: 'Distribuir',
+            cancelText: 'Cancelar',
+            onConfirm: (values) => {
+                const { studentId, amount, description } = values;
+                const parsedAmount = parseFloat(amount);
+                
+                // Validate inputs
+                if (!studentId) {
+                    Toast.show({ message: 'Por favor, selecione um membro para receber os lucros.', type: 'error' });
+                    return false;
+                }
+                
+                if (isNaN(parsedAmount) || parsedAmount <= 0) {
+                    Toast.show({ message: 'Por favor, insira um valor válido para distribuir.', type: 'error' });
+                    return false;
+                }
+                
+                if (parsedAmount > company.getProfit()) {
+                    Toast.show({ message: 'O valor não pode ser maior que o lucro disponível.', type: 'error' });
+                    return false;
+                }
+                
+                // Distribute profits in the company (creates an expense)
+                const expense = company.distributeProfits(studentId, parsedAmount, description);
+                if (!expense) {
+                    Toast.show({ message: 'Não foi possível distribuir os lucros. Verifique o saldo e tente novamente.', type: 'error' });
+                    return false;
+                }
+                
+                // Update student balance
+                const student = students.find(s => s.id === studentId);
+                student.addBalance(parsedAmount);
+                this.classManager.saveClasses();
+                
+                // Save company changes
+                this.saveCompanies();
+                
+                // Update UI
+                this.renderCompanyList();
+                
+                // Notify that student balance was updated
+                document.dispatchEvent(new CustomEvent('studentBalanceUpdated', {
+                    detail: {
+                        studentIds: [studentId],
+                        className: company.classroomName
+                    }
+                }));
+                
+                Toast.show({ 
+                    message: `Distribuição de R$ ${parsedAmount.toFixed(2)} realizada com sucesso para ${student.name}!`, 
+                    type: 'success' 
+                });
+                
                 return true;
             }
         });

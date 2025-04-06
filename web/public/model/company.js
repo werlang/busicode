@@ -5,7 +5,7 @@
 import Product from './product.js';
 
 export default class Company {
-    constructor(id, name, classroomName, memberContributions) {
+    constructor(id, name, classroomName, memberContributions, memberIds) {
         this.id = id;
         this.name = name;
         this.classroomName = classroomName;
@@ -18,56 +18,46 @@ export default class Company {
             .reduce((total, contribution) => total + (parseFloat(contribution) || 0), 0);
         
         this.currentBudget = this.initialBudget;
-        this.memberIds = Object.keys(this.memberContributions);
+        this.memberIds = memberIds || [];
         this.expenses = [];
         this.revenues = [];
     }
 
     /**
-     * Adiciona um membro com sua contribuição
+     * Adiciona um membro
      * @param {string} memberId - ID do membro
-     * @param {number} contribution - Valor da contribuição
      * @returns {boolean} - Se a adição foi bem-sucedida
      */
-    addMember(memberId, contribution) {
+    addMember(memberId) {
         if (!memberId || this.memberIds.includes(memberId)) return false;
-        
-        const amount = parseFloat(contribution) || 0;
-        this.memberContributions[memberId] = amount;
         this.memberIds.push(memberId);
-        this.initialBudget += amount;
-        this.currentBudget += amount;
-        
         return true;
     }
 
     /**
-     * Adiciona múltiplos membros com suas contribuições
-     * @param {Object} memberContributions - Objeto com IDs dos membros como chaves e contribuições como valores
+     * Adiciona múltiplos membros
+     * @param {Object} memberIds - IDs dos membros
      * @returns {number} - Número de membros adicionados com sucesso
      */
-    addMembers(memberContributions) {
-        if (!memberContributions || typeof memberContributions !== 'object') return 0;
+    addMembers(memberIds) {
+        if (!memberIds || !Array.isArray(memberIds)) return 0;
         
         let addedCount = 0;
-        for (const [memberId, contribution] of Object.entries(memberContributions)) {
-            if (this.addMember(memberId, contribution)) {
-                addedCount++;
-            }
-        }
+        memberIds.forEach(id => {
+            if (this.addMember(id)) addedCount++;
+        });
         
         return addedCount;
     }
 
     /**
-     * Remove um membro e sua contribuição
+     * Remove um membro
      * @param {string} memberId - ID do membro
      * @returns {boolean} - Se a remoção foi bem-sucedida
      */
     removeMember(memberId) {
         if (!memberId || !this.memberIds.includes(memberId)) return false;
         
-        // Não permitimos remover contribuições uma vez que já foram feitas
         this.memberIds = this.memberIds.filter(id => id !== memberId);
         return true;
     }
@@ -196,5 +186,25 @@ export default class Company {
         });
         
         return combined;
+    }
+
+    /**
+     * Distribui lucros da empresa para um membro específico
+     * @param {string} memberId - ID do membro
+     * @param {number} amount - Valor a ser distribuído
+     * @param {string} description - Descrição da distribuição
+     * @returns {Object|null} - O objeto de despesa criado ou null se falhar
+     */
+    distributeProfits(memberId, amount, description = 'Distribuição de lucros') {
+        // Verifica se o membro pertence à empresa
+        if (!this.memberIds.includes(memberId)) return null;
+        
+        // Verifica se a empresa tem saldo suficiente
+        amount = parseFloat(amount);
+        if (isNaN(amount) || amount <= 0 || amount > this.getProfit()) return null;
+        
+        // Registra como uma despesa
+        const descriptionWithMember = `${description} para membro: ${memberId}`;
+        return this.addExpense(descriptionWithMember, amount);
     }
 }
