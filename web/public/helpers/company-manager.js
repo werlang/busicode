@@ -145,7 +145,8 @@ export default class CompanyManager {
         
         // Criar a empresa com as contribuições individuais
         const id = `company_${Date.now()}`;
-        const company = new Company(id, companyName, className, memberContributions);
+        const company = new Company(id, companyName, className);
+        company.addRevenue('Capital Inicial', totalContribution);
         
         // Atualizar o saldo dos alunos deduzindo suas contribuições
         Object.entries(memberContributions).forEach(([studentId, contribution]) => {
@@ -514,6 +515,20 @@ export default class CompanyManager {
         document.addEventListener('companyCreated', (event) => {
             this.updateCompanySelect();
         });
+
+        // Listen for product sales
+        document.addEventListener('productSalesUpdated', (event) => {
+            const { productName, sales, price, companyId } = event.detail;
+            const company = this.getCompany(companyId);
+            this.addRevenue(
+                company,
+                `Venda de produto ${productName}`,
+                sales * price,
+                new Date().toISOString().split('T')[0]
+            );
+            this.saveCompanies();
+            this.renderCompanyList();
+        });
         
     }
 
@@ -556,7 +571,7 @@ export default class CompanyManager {
                     <p class="company-students"><strong>Alunos:</strong> ${students.join(', ')}</p>
                     <div class="company-finances">
                         <div class="finance-item">
-                            <div>Orçamento</div>
+                            <div>Receitas</div>
                             <div class="finance-value budget">R$ ${company.currentBudget.toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
@@ -564,7 +579,7 @@ export default class CompanyManager {
                             <div class="finance-value expenses">R$ ${company.getTotalExpenses().toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
-                            <div>Lucro</div>
+                            <div>Caixa</div>
                             <div class="finance-value profit">R$ ${company.getProfit().toFixed(2)}</div>
                         </div>
                     </div>

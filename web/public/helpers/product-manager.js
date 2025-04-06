@@ -234,6 +234,16 @@ export default class ProductManager {
                 }
                 
                 product.addSales(newSalesValue);
+
+                document.dispatchEvent(new CustomEvent('productSalesUpdated', {
+                    detail: {
+                        productId: product.id,
+                        productName: product.name,
+                        sales: newSalesValue,
+                        price: product.price,
+                        companyId: product.companyId,
+                    }
+                }));
                 
                 // Update UI
                 salesCell.textContent = product.sales;
@@ -284,7 +294,8 @@ export default class ProductManager {
         const index = this.launchedProducts.findIndex(p => p.id === productId);
         if (index !== -1) {
             const product = this.launchedProducts[index];
-            let shownName = product.productName.length ? `"${product.productName}"` : `da empresa "${product.companyName}"`;
+            const company = this.companyManager.getCompany(product.companyId);
+            let shownName = product.name.length ? `"${product.name}"` : `da empresa "${company.name}"`;
             
             // Show confirmation modal
             Modal.show({
