@@ -517,6 +517,10 @@ button:hover {
   background-color: var(--secondary-color);
 }
 
+#apply-sales-btn:disabled {
+  background-color: #cccccc;
+}
+
 #clear-launch-btn {
   background-color: var(--danger-color);
 }
