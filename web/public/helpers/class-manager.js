@@ -22,6 +22,8 @@ export default class ClassManager {
         this.renderClassList();
         document.querySelector('#create-class-btn').addEventListener('click', () => this.createClass());
         document.querySelector('#import-students-btn').addEventListener('click', () => this.importStudents());
+
+        document.addEventListener('studentBalanceUpdated', () => this.renderClassList());
     }
 
     /**
@@ -32,7 +34,12 @@ export default class ClassManager {
         const classData = this.storage.loadData() || {};
         // Convert plain objects to Student instances
         for (const className in classData) {
-            classData[className] = classData[className].map(student => new Student(student.id, student.name, student.initialBalance));
+            classData[className] = classData[className].map(student => new Student(
+                student.id,
+                student.name,
+                student.initialBalance,
+                student.currentBalance
+            ));
         }
         this.classes = classData;
         return classData;
@@ -206,6 +213,7 @@ export default class ClassManager {
      * @returns {Student[]} Array of students in the class
      */
     getStudents(className) {
+        this.classes = this.loadClasses();
         return this.classes[className] || [];
     }
 
@@ -299,9 +307,22 @@ export default class ClassManager {
             studentCsvInput.value = '';
             studentInitialBalanceInput.value = 0;
             this.renderClassList();
-            document.dispatchEvent(new CustomEvent('studentListUpdated', { detail: { className } }));
         } else {
             Toast.show({ message: 'Nenhum aluno foi adicionado. Verifique o formato da entrada.', type: 'error' });
+        }
+    }
+
+    updateStudentBalance(className, studentId, amount) {
+        const students = this.getStudents(className);
+        const student = students.find(s => s.id === studentId);
+
+        if (student) {
+            if (amount < 0) {
+                student.deductBalance(-amount);
+            } else {
+                student.addBalance(amount);
+            }
+            this.saveClasses();
         }
     }
 }
