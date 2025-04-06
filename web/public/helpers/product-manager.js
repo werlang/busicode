@@ -4,6 +4,7 @@
  */
 import Storage from './storage.js';
 import CompanyManager from './company-manager.js';
+import ClassManager from './class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 import Product from '../model/product.js';
@@ -13,6 +14,7 @@ export default class ProductManager {
         this.storage = new Storage('busicode_product_launches');
         this.launchedProducts = this.loadLaunchedProducts() || [];
         this.companyManager = new CompanyManager();
+        this.classManager = new ClassManager();
     }
 
     /**
@@ -20,6 +22,7 @@ export default class ProductManager {
      */
     initialize() {
         this.setupEventListeners();
+        this.updateClassFilter();
         this.updateCompanyDropdown();
         this.renderLaunchedProducts();
     }
@@ -57,8 +60,25 @@ export default class ProductManager {
             launchProductBtn.addEventListener('click', () => this.launchProduct());
         }
 
+        // Listen for class selection changes
+        document.addEventListener('classSelectsUpdated', () => {
+            this.updateClassFilter();
+            this.updateCompanyDropdown();
+            this.renderLaunchedProducts();
+        });
+
+        // Listen for class filter changes
+        const productFilterSelect = document.querySelector('#product-filter-select');
+        if (productFilterSelect) {
+            productFilterSelect.addEventListener('change', () => {
+                this.updateCompanyDropdown();
+                this.renderLaunchedProducts();
+            });
+        }
+
         // Listen for company creation event
         document.addEventListener('companyCreated', () => {
+            this.updateClassFilter();
             this.updateCompanyDropdown();
         });
 
@@ -67,16 +87,62 @@ export default class ProductManager {
             const companyId = event.detail.companyId;
             this.launchedProducts = this.launchedProducts.filter(product => product.companyId !== companyId);
             this.saveLaunchedProducts();
+            this.updateClassFilter();
+            this.updateCompanyDropdown();
+            this.renderLaunchedProducts();
+        });
+
+        // Listen for class deletion
+        document.addEventListener('classDeleted', (event) => {
+            this.updateClassFilter();
+            this.updateCompanyDropdown();
             this.renderLaunchedProducts();
         });
 
         // Listen for section change events
         document.addEventListener('sectionChanged', (event) => {
             if (event.detail.sectionId === 'product-launch-section') {
+                this.updateClassFilter();
                 this.updateCompanyDropdown();
                 this.renderLaunchedProducts();
             }
         });
+    }
+
+    /**
+     * Update class filter dropdown
+     */
+    updateClassFilter() {
+        const filterSelect = document.querySelector('#product-filter-select');
+        if (!filterSelect) return;
+
+        // Save current selection
+        const currentSelection = filterSelect.value;
+        
+        // Clear options except the default one
+        while (filterSelect.options.length > 1) {
+            filterSelect.options.remove(1);
+        }
+        
+        // Get unique class names from companies that have products
+        const classNames = [...new Set(
+            this.launchedProducts
+                .map(product => this.companyManager.getCompany(product.companyId)?.classroomName)
+                .filter(className => className)
+        )];
+        
+        // Add all available classes
+        classNames.forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            filterSelect.appendChild(option);
+        });
+        
+        // Restore selection if possible
+        if (classNames.includes(currentSelection)) {
+            filterSelect.value = currentSelection;
+        }
     }
 
     /**
@@ -94,8 +160,15 @@ export default class ProductManager {
             companySelect.options.remove(1);
         }
         
-        // Add all companies
-        const companies = this.companyManager.getAllCompanies();
+        // Get selected class filter
+        const selectedClass = document.querySelector('#product-filter-select').value;
+        
+        // Get companies filtered by class if needed
+        const companies = selectedClass 
+            ? this.companyManager.getCompaniesForClass(selectedClass)
+            : this.companyManager.getAllCompanies();
+        
+        // Add filtered companies
         companies.forEach(company => {
             const option = document.createElement('option');
             option.value = company.id;
@@ -149,13 +222,13 @@ export default class ProductManager {
 
         this.launchedProducts.push(launchedProduct);
         this.saveLaunchedProducts();
+        this.updateCompanyDropdown();
+        this.updateClassFilter();
+        this.renderLaunchedProducts();
         
         // Reset form
         productNameInput.value = '';
         productPriceInput.value = '';
-        
-        // Refresh the UI
-        this.renderLaunchedProducts();
         
         Toast.show({ 
             message: `Produto "${productName}" lançado com sucesso para a empresa "${company.name}"!`, 
@@ -219,18 +292,31 @@ export default class ProductManager {
         
         launchProductsBody.innerHTML = '';
         
-        if (this.launchedProducts.length === 0) {
+        // Get selected class filter
+        const selectedClass = document.querySelector('#product-filter-select').value;
+        
+        // Filter products by class if needed
+        const filteredProducts = selectedClass 
+            ? this.launchedProducts.filter(product => {
+                const company = this.companyManager.getCompany(product.companyId);
+                return company && company.classroomName === selectedClass;
+            })
+            : this.launchedProducts;
+        
+        if (filteredProducts.length === 0) {
             const emptyRow = document.createElement('tr');
             const emptyCell = document.createElement('td');
-            emptyCell.colSpan = 6;
+            emptyCell.colSpan = 7;
             emptyCell.className = 'empty-table';
-            emptyCell.textContent = 'Nenhum produto lançado.';
+            emptyCell.textContent = selectedClass 
+                ? `Nenhum produto lançado para a turma "${selectedClass}".`
+                : 'Nenhum produto lançado.';
             emptyRow.appendChild(emptyCell);
             launchProductsBody.appendChild(emptyRow);
             return;
         }
 
-        this.launchedProducts.forEach(product => {
+        filteredProducts.forEach(product => {
             const row = document.createElement('tr');
             
             // Company name
@@ -360,6 +446,8 @@ export default class ProductManager {
                 onConfirm: () => {
                     this.launchedProducts.splice(index, 1);
                     this.saveLaunchedProducts();
+                    this.updateCompanyDropdown();
+                    this.updateClassFilter();
                     this.renderLaunchedProducts();
                     Toast.show({ 
                         message: `Produto ${shownName} removido do lançamento com sucesso!`, 
