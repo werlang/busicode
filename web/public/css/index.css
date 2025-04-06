@@ -517,10 +517,6 @@ button:hover {
   background-color: var(--secondary-color);
 }
 
-#apply-sales-btn:disabled {
-  background-color: #cccccc;
-}
-
 #clear-launch-btn {
   background-color: var(--danger-color);
 }
@@ -536,6 +532,39 @@ button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Sales input container styling */
+.sales-input-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.new-sales-input {
+  width: 60px;
+  text-align: center;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: var(--border-radius);
+}
+
+.add-sales-btn {
+  padding: 5px 10px;
+  background-color: var(--accent-color);
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-sales-btn:hover {
+  background-color: #e67e22;
+  transform: scale(1.1);
 }
 
 /* Responsive adjustments */
@@ -575,5 +604,15 @@ button:disabled {
   .delete-product-btn {
     padding: 4px 8px;
     font-size: 0.8rem;
+  }
+  
+  .sales-input-container {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .add-sales-btn {
+    width: 100%;
+    border-radius: var(--border-radius);
   }
 }

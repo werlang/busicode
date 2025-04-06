@@ -30,7 +30,14 @@ export default class ProductManager {
      */
     loadLaunchedProducts() {
         const data = this.storage.loadData() || [];
-        return data.map(product => new Product(product.id, product.name, product.price, product.companyId));
+        return data.map(product => new Product({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            companyId: product.companyId,
+            sales: product.sales,
+            total: product.total,
+        }));
     }
 
     /**
@@ -48,12 +55,6 @@ export default class ProductManager {
         const launchProductBtn = document.querySelector('#launch-product-btn');
         if (launchProductBtn) {
             launchProductBtn.addEventListener('click', () => this.launchProduct());
-        }
-
-        // Initialize apply sales button
-        const applySalesBtn = document.querySelector('#apply-sales-btn');
-        if (applySalesBtn) {
-            applySalesBtn.addEventListener('click', () => this.applySales());
         }
 
         // Listen for company creation event
@@ -139,12 +140,12 @@ export default class ProductManager {
         }
         
         // Add product to launched products list
-        const launchedProduct = new Product(
-            `launch_${Date.now()}`,
-            productName,
-            productPrice,
-            companyId
-        );
+        const launchedProduct = new Product({
+            id: `launch_${Date.now()}`,
+            name: productName,
+            price: productPrice,
+            companyId,
+        });
 
         this.launchedProducts.push(launchedProduct);
         this.saveLaunchedProducts();
@@ -167,12 +168,6 @@ export default class ProductManager {
      */
     renderLaunchedProducts() {
         this.launchedProducts = this.loadLaunchedProducts();
-
-        const applySalesBtn = document.querySelector('#apply-sales-btn');
-        if (applySalesBtn) {
-            applySalesBtn.disabled = this.launchedProducts.length === 0;
-        }
-
         const launchProductsBody = document.querySelector('#launch-products-body');
         if (!launchProductsBody) return;
         
@@ -189,10 +184,6 @@ export default class ProductManager {
             return;
         }
 
-        // Check if we're in selling mode
-        const sellingMode = document.querySelector('#apply-sales-btn') && 
-                           !document.querySelector('#apply-sales-btn').disabled;
-        
         this.launchedProducts.forEach(product => {
             const row = document.createElement('tr');
             
@@ -200,17 +191,67 @@ export default class ProductManager {
             const companyCell = document.createElement('td');
             companyCell.textContent = this.companyManager.getCompany(product.companyId).name;
             
+            // Product name
+            const nameCell = document.createElement('td');
+            nameCell.textContent = product.name;
+            
             // Price
             const priceCell = document.createElement('td');
             priceCell.textContent = `R$ ${product.price.toFixed(2)}`;
             
-            // Sales
+            // Total Sales (read-only)
             const salesCell = document.createElement('td');
-            salesCell.textContent = product.sales;
+            salesCell.textContent = product.sales || 0;
             
-            // Total
+            // Total Revenue
             const totalCell = document.createElement('td');
             totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
+            
+            // New Sales Input
+            const newSalesCell = document.createElement('td');
+            
+            const salesInputContainer = document.createElement('div');
+            salesInputContainer.className = 'sales-input-container';
+            
+            // Create input for new sales
+            const newSalesInput = document.createElement('input');
+            newSalesInput.type = 'number';
+            newSalesInput.min = '0';
+            newSalesInput.className = 'new-sales-input';
+            newSalesInput.placeholder = '0';
+            newSalesInput.value = '';
+            
+            // Create add button
+            const addSalesBtn = document.createElement('button');
+            addSalesBtn.textContent = '+';
+            addSalesBtn.className = 'add-sales-btn';
+            addSalesBtn.title = 'Adicionar vendas';
+            addSalesBtn.addEventListener('click', () => {
+                const newSalesValue = parseInt(newSalesInput.value) || 0;
+                if (newSalesValue <= 0) {
+                    Toast.show({ message: 'Insira um valor válido para as vendas.', type: 'warning' });
+                    return;
+                }
+                
+                product.addSales(newSalesValue);
+                
+                // Update UI
+                salesCell.textContent = product.sales;
+                totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
+                newSalesInput.value = '';
+                
+                // Save changes
+                this.saveLaunchedProducts();
+                
+                Toast.show({ 
+                    message: `${newSalesValue} vendas adicionadas ao produto "${product.name}"!`, 
+                    type: 'success' 
+                });
+            });
+            
+            salesInputContainer.appendChild(newSalesInput);
+            salesInputContainer.appendChild(addSalesBtn);
+            newSalesCell.appendChild(salesInputContainer);
             
             // Actions
             const actionsCell = document.createElement('td');
@@ -224,9 +265,11 @@ export default class ProductManager {
             
             // Add cells to row
             row.appendChild(companyCell);
+            row.appendChild(nameCell);
             row.appendChild(priceCell);
             row.appendChild(salesCell);
             row.appendChild(totalCell);
+            row.appendChild(newSalesCell);
             row.appendChild(actionsCell);
             
             launchProductsBody.appendChild(row);
@@ -263,50 +306,4 @@ export default class ProductManager {
         }
     }
 
-    /**
-     * Apply sales to companies
-     */
-    applySales() {
-        if (this.launchedProducts.length === 0) {
-            Toast.show({ message: 'Não há produtos para aplicar vendas.', type: 'error' });
-            return;
-        }
-
-        // check if any sales
-        const salesInputs = document.querySelectorAll('.sales-input');
-        const hasSales = Array.from(salesInputs).some(input => parseInt(input.value) > 0);
-        if (!hasSales) {
-            Toast.show({ message: 'Nenhuma venda foi registrada.', type: 'error' });
-            return;
-        }
-
-        // apply sales to companies
-        const companies = this.companyManager.getAllCompanies();
-        this.launchedProducts.forEach(product => {
-            const company = companies.find(c => c.id === product.companyId);
-            if (company) {
-                const productInCompany = company.getProduct(product.productId);
-                if (productInCompany) {
-                    // Use Product class methods to add sales
-                    productInCompany.addSales(product.sales);
-                }
-            }
-        });
-        this.companyManager.saveCompanies();
-        
-        // Reset sales in the UI
-        this.launchedProducts.forEach(product => {
-            const salesInput = document.querySelector(`input[data-product-id="${product.id}"]`);
-            if (salesInput) {
-                salesInput.value = 0;
-            }
-        });
-        this.saveLaunchedProducts();
-        this.renderLaunchedProducts();
-        
-        Toast.show({ 
-            message: 'Vendas aplicadas com sucesso!', 
-            type: 'success' 
-        });
-    }
 }
