@@ -13,7 +13,11 @@ export default class Student {
         this.id = id;
         this.name = name;
         this.initialBalance = parseFloat(initialBalance) || 0;
-        this.currentBalance = parseFloat(currentBalance) || this.initialBalance;
+        this.currentBalance = parseFloat(currentBalance) || 0;
+
+        if (this.initialBalance > 0 && this.currentBalance === 0) {
+            this.currentBalance = this.initialBalance;
+        }
     }
 
     /**
@@ -22,8 +26,8 @@ export default class Student {
      * @returns {boolean} - Se a operação foi bem-sucedida
      */
     deductBalance(amount) {
-        const deduction = parseFloat(amount) || 0;
-        if (deduction <= 0) return false;
+        const deduction = !isNaN(amount) ? parseFloat(amount) : 0;
+        if (deduction < 0) return false;
         if (deduction > this.currentBalance) return false;
         
         this.currentBalance -= deduction;

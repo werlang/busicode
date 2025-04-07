@@ -151,8 +151,8 @@ export default class CompanyManager {
         company.addMembers(selectedStudentIds);
         
         // Atualizar o saldo dos alunos deduzindo suas contribuições
+        const classStudents = this.classManager.getStudents(className);
         Object.entries(memberContributions).forEach(([studentId, contribution]) => {
-            const classStudents = this.classManager.getStudents(className);
             const student = classStudents.find(s => s.id === studentId);
             if (student) {
                 student.deductBalance(contribution);
@@ -168,7 +168,6 @@ export default class CompanyManager {
         }));
         
         this.companies[id] = company;
-        console.log(company);
         this.saveCompanies();
         
         Toast.show({ message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`, type: 'success' });

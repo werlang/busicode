@@ -72,7 +72,6 @@ export default class ClassManager {
             Toast.show({ message: `Turma "${className}" criada com sucesso!`, type: 'success' });
             classNameInput.value = '';
             document.dispatchEvent(new CustomEvent('classListUpdated'));
-            console.log(this.classes);
             this.renderClassList();
             return true;
         }
@@ -376,20 +375,6 @@ export default class ClassManager {
             this.renderClassList();
         } else {
             Toast.show({ message: 'Nenhum aluno foi adicionado. Verifique o formato da entrada.', type: 'error' });
-        }
-    }
-
-    updateStudentBalance(className, studentId, amount) {
-        const students = this.getStudents(className);
-        const student = students.find(s => s.id === studentId);
-
-        if (student) {
-            if (amount < 0) {
-                student.deductBalance(-amount);
-            } else {
-                student.addBalance(amount);
-            }
-            this.saveClasses();
         }
     }
 
