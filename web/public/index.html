@@ -30,6 +30,13 @@
                 <h2>Gerenciamento de Turmas e Alunos</h2>
             </div>
 
+            <div class="container" id="class-display">
+                <h3>Turmas e Alunos Cadastrados</h3>
+                <div id="classes-list" class="card-container">
+                    <!-- Classes will be dynamically added here -->
+                </div>
+            </div>
+
             <div class="container">
                 <div class="card">
                     <h3>Criar Nova Turma</h3>
@@ -59,19 +66,19 @@
                     <button id="import-students-btn">Importar Alunos</button>
                 </div>
             </div>
-
-            <div class="container" id="class-display">
-                <h3>Turmas e Alunos Cadastrados</h3>
-                <div id="classes-list" class="card-container">
-                    <!-- Classes will be dynamically added here -->
-                </div>
-            </div>
         </section>
 
         <!-- Seção de Operações de Empresas -->
         <section class="app-section" id="company-section">
             <div class="section-header">
                 <h2>Gestão de Empresas</h2>
+            </div>
+
+            <div id="companies-display" class="container">
+                <h3>Empresas Ativas</h3>
+                <div id="companies-list" class="card-container">
+                    <!-- Companies will be dynamically added here -->
+                </div>
             </div>
 
             <div class="container" id="company-management">
@@ -109,12 +116,6 @@
                     </div>
                 </div>
                 
-                <div id="companies-display">
-                    <h3>Empresas Ativas</h3>
-                    <div id="companies-list" class="card-container">
-                        <!-- Companies will be dynamically added here -->
-                    </div>
-                </div>
             </div>
         </section>
 
@@ -122,6 +123,30 @@
         <section class="app-section" id="product-launch-section">
             <div class="section-header">
                 <h2>Lançamento de Produtos</h2>
+            </div>
+
+            <div class="container">
+                <div class="card">
+                    <h3>Produtos Lançados</h3>
+                    <div id="launch-products-table-container">
+                        <table id="launch-products-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Empresa</th>
+                                    <th>Produto</th>
+                                    <th>Preço (R$)</th>
+                                    <th>Vendas Totais</th>
+                                    <th>Receita Total (R$)</th>
+                                    <th>Nova Venda</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="launch-products-body">
+                                <!-- Launch products will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div class="container">
@@ -156,29 +181,6 @@
                 </div>
             </div>
 
-            <div class="container">
-                <div class="card">
-                    <h3>Produtos Lançados</h3>
-                    <div id="launch-products-table-container">
-                        <table id="launch-products-table" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Empresa</th>
-                                    <th>Produto</th>
-                                    <th>Preço (R$)</th>
-                                    <th>Vendas Totais</th>
-                                    <th>Receita Total (R$)</th>
-                                    <th>Nova Venda</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="launch-products-body">
-                                <!-- Launch products will be added here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
         </section>
     </main>
 
