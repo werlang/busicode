@@ -321,26 +321,32 @@ export default class ProductManager {
             
             // Company name
             const companyCell = document.createElement('td');
+            companyCell.setAttribute('data-label', 'Empresa');
             companyCell.textContent = this.companyManager.getCompany(product.companyId).name;
             
             // Product name
             const nameCell = document.createElement('td');
+            nameCell.setAttribute('data-label', 'Produto');
             nameCell.textContent = product.name;
             
             // Price
             const priceCell = document.createElement('td');
+            priceCell.setAttribute('data-label', 'Preço');
             priceCell.textContent = `R$ ${product.price.toFixed(2)}`;
             
             // Total Sales (read-only)
             const salesCell = document.createElement('td');
+            salesCell.setAttribute('data-label', 'Vendas Totais');
             salesCell.textContent = product.sales || 0;
             
             // Total Revenue
             const totalCell = document.createElement('td');
+            totalCell.setAttribute('data-label', 'Receita Total');
             totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
             
             // New Sales Input
             const newSalesCell = document.createElement('td');
+            newSalesCell.setAttribute('data-label', 'Nova Venda');
             
             const salesInputContainer = document.createElement('div');
             salesInputContainer.className = 'sales-input-container';
@@ -397,6 +403,7 @@ export default class ProductManager {
             
             // Actions
             const actionsCell = document.createElement('td');
+            actionsCell.className = 'action-buttons';
             
             // Edit price button
             const editPriceBtn = document.createElement('button');
