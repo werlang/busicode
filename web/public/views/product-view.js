@@ -1,53 +1,28 @@
 /**
- * Product Manager
- * Manages products and product launches in the BusiCode application
+ * Product View
+ * Handles UI rendering for products in the BusiCode application
  */
-import Storage from '../helpers/storage.js';
-import CompanyView from './company.js';
-import ClassView from './class.js';
+import ProductManager from '../helpers/product-manager.js';
+import CompanyManager from '../helpers/company-manager.js';
+import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
-import Product from '../model/product.js';
 
 export default class ProductView {
     constructor() {
-        this.storage = new Storage('busicode_product_launches');
-        this.launchedProducts = this.loadLaunchedProducts() || [];
-        this.companyManager = new CompanyView();
-        this.classManager = new ClassView();
+        this.productManager = new ProductManager();
+        this.companyManager = new CompanyManager();
+        this.classManager = new ClassManager();
     }
 
     /**
-     * Initialize the ProductManager
+     * Initialize the ProductView
      */
     initialize() {
         this.setupEventListeners();
         this.updateClassFilter();
         this.updateCompanyDropdown();
         this.renderLaunchedProducts();
-    }
-
-    /**
-     * Load launched products from storage
-     * @returns {Array} An array of launched products
-     */
-    loadLaunchedProducts() {
-        const data = this.storage.loadData() || [];
-        return data.map(product => new Product({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            companyId: product.companyId,
-            sales: product.sales,
-            total: product.total,
-        }));
-    }
-
-    /**
-     * Save launched products to storage
-     */
-    saveLaunchedProducts() {
-        this.storage.saveData(this.launchedProducts);
     }
 
     /**
@@ -85,8 +60,7 @@ export default class ProductView {
         // Listen for company deletion event
         document.addEventListener('companyDeleted', (event) => {
             const companyId = event.detail.companyId;
-            this.launchedProducts = this.launchedProducts.filter(product => product.companyId !== companyId);
-            this.saveLaunchedProducts();
+            this.productManager.removeProductsByCompany(companyId);
             this.updateClassFilter();
             this.updateCompanyDropdown();
             this.renderLaunchedProducts();
@@ -125,11 +99,7 @@ export default class ProductView {
         }
         
         // Get unique class names from companies that have products
-        const classNames = [...new Set(
-            this.launchedProducts
-                .map(product => this.companyManager.getCompany(product.companyId)?.classroomName)
-                .filter(className => className)
-        )];
+        const classNames = this.productManager.getUniqueClassNames();
         
         // Add all available classes
         classNames.forEach(className => {
@@ -183,7 +153,7 @@ export default class ProductView {
     }
 
     /**
-     * Launch a new product
+     * Launch a new product using form input
      */
     launchProduct() {
         const companySelect = document.querySelector('#product-company-select');
@@ -194,57 +164,33 @@ export default class ProductView {
         const productName = productNameInput.value.trim();
         const productPrice = parseFloat(productPriceInput.value);
         
-        // Validate inputs
-        if (!companyId) {
-            Toast.show({ message: 'Por favor, selecione uma empresa.', type: 'error' });
+        // Use the product manager to launch the product
+        const result = this.productManager.launchProduct(companyId, productName, productPrice);
+        
+        if (!result.success) {
+            Toast.show({ message: result.message, type: 'error' });
             return;
         }
-        
-        if (isNaN(productPrice) || productPrice <= 0) {
-            Toast.show({ message: 'Por favor, insira um valor válido para o produto.', type: 'error' });
-            return;
-        }
-        
-        // Get company
-        const company = this.companyManager.getCompany(companyId);
-        if (!company) {
-            Toast.show({ message: 'Empresa não encontrada.', type: 'error' });
-            return;
-        }
-        
-        // Add product to launched products list
-        const launchedProduct = new Product({
-            id: `launch_${Date.now()}`,
-            name: productName,
-            price: productPrice,
-            companyId,
-        });
-
-        this.launchedProducts.push(launchedProduct);
-        this.saveLaunchedProducts();
-        this.updateCompanyDropdown();
-        this.updateClassFilter();
-        this.renderLaunchedProducts();
         
         // Reset form
         productNameInput.value = '';
         productPriceInput.value = '';
         
-        Toast.show({ 
-            message: `Produto "${productName}" lançado com sucesso para a empresa "${company.name}"!`, 
-            type: 'success' 
-        });
+        // Update UI
+        this.updateCompanyDropdown();
+        this.updateClassFilter();
+        this.renderLaunchedProducts();
+        
+        Toast.show({ message: result.message, type: 'success' });
     }
 
     /**
-     * Edit a product's price
+     * Show a modal to edit a product's price
      * @param {string} productId - ID of the product to edit
      */
     editProductPrice(productId) {
-        const product = this.launchedProducts.find(p => p.id === productId);
+        const product = this.productManager.getProduct(productId);
         if (!product) return;
-        
-        const company = this.companyManager.getCompany(product.companyId);
         
         Modal.showInput({
             title: 'Editar Preço do Produto',
@@ -263,20 +209,15 @@ export default class ProductView {
             onConfirm: (values) => {
                 const newPrice = parseFloat(values.price);
                 
-                if (isNaN(newPrice) || newPrice <= 0) {
-                    Toast.show({ message: 'Por favor, insira um valor válido para o produto.', type: 'error' });
+                const result = this.productManager.editProductPrice(productId, newPrice);
+                
+                if (!result.success) {
+                    Toast.show({ message: result.message, type: 'error' });
                     return false;
                 }
                 
-                product.updatePrice(newPrice);
-                this.saveLaunchedProducts();
                 this.renderLaunchedProducts();
-                
-                Toast.show({ 
-                    message: `Preço do produto "${product.name}" atualizado para R$ ${newPrice.toFixed(2)}!`, 
-                    type: 'success' 
-                });
-                
+                Toast.show({ message: result.message, type: 'success' });
                 return true;
             }
         });
@@ -286,7 +227,6 @@ export default class ProductView {
      * Render the list of launched products
      */
     renderLaunchedProducts() {
-        this.launchedProducts = this.loadLaunchedProducts();
         const launchProductsBody = document.querySelector('#launch-products-body');
         if (!launchProductsBody) return;
         
@@ -295,13 +235,10 @@ export default class ProductView {
         // Get selected class filter
         const selectedClass = document.querySelector('#product-filter-select').value;
         
-        // Filter products by class if needed
+        // Get products filtered by class if needed
         const filteredProducts = selectedClass 
-            ? this.launchedProducts.filter(product => {
-                const company = this.companyManager.getCompany(product.companyId);
-                return company && company.classroomName === selectedClass;
-            })
-            : this.launchedProducts;
+            ? this.productManager.getLaunchedProductsByClass(selectedClass)
+            : this.productManager.getAllLaunchedProducts();
         
         if (filteredProducts.length === 0) {
             const emptyRow = document.createElement('tr');
@@ -366,35 +303,32 @@ export default class ProductView {
             addSalesBtn.title = 'Adicionar vendas';
             addSalesBtn.addEventListener('click', () => {
                 const newSalesValue = parseInt(newSalesInput.value) || 0;
-                if (newSalesValue <= 0) {
-                    Toast.show({ message: 'Insira um valor válido para as vendas.', type: 'warning' });
+                
+                // Use the product manager to add sales
+                const result = this.productManager.addProductSales(product.id, newSalesValue);
+                
+                if (!result.success) {
+                    Toast.show({ message: result.message, type: 'warning' });
                     return;
                 }
                 
-                product.addSales(newSalesValue);
-
+                // Notify company manager about the sales
                 document.dispatchEvent(new CustomEvent('productSalesUpdated', {
                     detail: {
-                        productId: product.id,
-                        productName: product.name,
-                        sales: newSalesValue,
-                        price: product.price,
-                        companyId: product.companyId,
+                        productId: result.product.id,
+                        productName: result.product.name,
+                        sales: result.salesCount,
+                        price: result.price,
+                        companyId: result.companyId,
                     }
                 }));
                 
                 // Update UI
-                salesCell.textContent = product.sales;
-                totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
+                salesCell.textContent = result.product.sales;
+                totalCell.textContent = `R$ ${result.product.total.toFixed(2)}`;
                 newSalesInput.value = '';
                 
-                // Save changes
-                this.saveLaunchedProducts();
-                
-                Toast.show({ 
-                    message: `${newSalesValue} vendas adicionadas ao produto "${product.name}"!`, 
-                    type: 'success' 
-                });
+                Toast.show({ message: result.message, type: 'success' });
             });
             
             salesInputContainer.appendChild(newSalesInput);
@@ -416,7 +350,7 @@ export default class ProductView {
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remover';
             removeBtn.className = 'remove-btn';
-            removeBtn.addEventListener('click', () => this.removeProduct(product.id));
+            removeBtn.addEventListener('click', () => this.showRemoveProductModal(product.id));
             actionsCell.appendChild(removeBtn);
             
             // Add cells to row
@@ -433,36 +367,35 @@ export default class ProductView {
     }
 
     /**
-     * Remove a product from the launched products list
+     * Show confirmation modal for removing a product
      * @param {string} productId - ID of the product to remove
      */
-    removeProduct(productId) {
-        const index = this.launchedProducts.findIndex(p => p.id === productId);
-        if (index !== -1) {
-            const product = this.launchedProducts[index];
-            const company = this.companyManager.getCompany(product.companyId);
-            let shownName = product.name.length ? `"${product.name}"` : `da empresa "${company.name}"`;
-            
-            // Show confirmation modal
-            Modal.show({
-                title: 'Confirmar Remoção',
-                message: `Tem certeza que deseja remover o produto ${shownName} do lançamento?`,
-                confirmText: 'Remover',
-                cancelText: 'Cancelar',
-                type: 'warning',
-                onConfirm: () => {
-                    this.launchedProducts.splice(index, 1);
-                    this.saveLaunchedProducts();
+    showRemoveProductModal(productId) {
+        const product = this.productManager.getProduct(productId);
+        if (!product) return;
+        
+        const company = this.companyManager.getCompany(product.companyId);
+        let shownName = product.name.length ? `"${product.name}"` : `da empresa "${company.name}"`;
+        
+        // Show confirmation modal
+        Modal.show({
+            title: 'Confirmar Remoção',
+            message: `Tem certeza que deseja remover o produto ${shownName} do lançamento?`,
+            confirmText: 'Remover',
+            cancelText: 'Cancelar',
+            type: 'warning',
+            onConfirm: () => {
+                const result = this.productManager.removeProduct(productId);
+                
+                if (result.success) {
                     this.updateCompanyDropdown();
                     this.updateClassFilter();
                     this.renderLaunchedProducts();
-                    Toast.show({ 
-                        message: `Produto ${shownName} removido do lançamento com sucesso!`, 
-                        type: 'success' 
-                    });
+                    Toast.show({ message: result.message, type: 'success' });
+                } else {
+                    Toast.show({ message: result.message, type: 'error' });
                 }
-            });
-        }
+            }
+        });
     }
-
 }

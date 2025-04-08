@@ -1,24 +1,21 @@
 /**
- * Company Manager
- * Manages companies and their finances in the BusiCode application
+ * Company View
+ * Handles UI rendering for companies in the BusiCode application
  */
-import Storage from '../helpers/storage.js';
-import Company from '../model/company.js';
-import ClassView from './class.js';
+import CompanyManager from '../helpers/company-manager.js';
+import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 
 export default class CompanyView {
     constructor() {
-        this.storage = new Storage('busicode_companies');
-        this.companies = this.loadCompanies();
-        this.classManager = new ClassView();
+        this.companyManager = new CompanyManager();
+        this.classManager = new ClassManager();
     }
 
     /**
-     * Initialize the CompanyManager
-     * This method can be used to set up any necessary data or state
-     * @returns {void}
+     * Initialize the CompanyView
+     * Set up UI event handlers and render initial content
      */
     initialize() {
         const createCompanyBtn = document.querySelector('#create-company-btn');
@@ -44,51 +41,9 @@ export default class CompanyView {
     }
 
     /**
-     * Load companies from storage
-     * @returns {Object} An object containing all companies
-     */
-    loadCompanies() {
-        const data = this.storage.loadData() || {};
-        
-        // Convert plain objects to Company instances
-        Object.keys(data).forEach(id => {
-            const companyData = data[id];
-            data[id] = new Company(
-                companyData.id,
-                companyData.name,
-                companyData.classroomName,
-                companyData.memberContributions,
-                companyData.memberIds
-            );
-            
-            // Restore expenses and revenues
-            data[id].expenses = companyData.expenses || [];
-            data[id].revenues = companyData.revenues || [];
-            data[id].currentBudget = companyData.currentBudget;
-            
-            // Restore products
-            data[id].products = companyData.products || [];
-        });
-        
-        return data;
-    }
-
-    /**
-     * Save companies to storage
-     */
-    saveCompanies() {
-        this.storage.saveData(this.companies);
-    }
-
-    /**
-     * Create a new company
-     * @param {string} name - Company name
-     * @param {string} classroomName - Class name
-     * @param {Object} memberContributions - Object mapping member IDs to their contributions
-     * @returns {Company} The created company
+     * Create a new company from UI input
      */
     createCompany() {
-
         const classNameInput = document.querySelector('#company-class-select');
         const className = classNameInput.value;
         const companyNameInput = document.querySelector('#company-name');
@@ -113,13 +68,9 @@ export default class CompanyView {
             return;
         }
         
-        // Coletar as contribuições individuais
+        // Collect individual contributions
         const memberContributions = {};
         let totalContribution = 0;
-        const students = this.classManager.getStudents(className);
-        
-        // Verificar se cada aluno tem saldo suficiente para sua contribuição
-        let insufficientFunds = false;
         
         selectedStudentIds.forEach(studentId => {
             const contributionInput = document.querySelector(`#contribution-${studentId}`);
@@ -128,49 +79,30 @@ export default class CompanyView {
             const contribution = parseFloat(contributionInput.value) || 0;
             memberContributions[studentId] = contribution;
             totalContribution += contribution;
-            
-            // Verificar se o aluno tem saldo suficiente
-            const student = students.find(s => s.id === studentId);
-            if (student && contribution > student.currentBalance) {
-                insufficientFunds = true;
-                Toast.show({ message: `Aluno ${student.name} não tem saldo suficiente para contribuir R$ ${contribution.toFixed(2)}`, type: 'error' });
-            }
         });
         
-        if (insufficientFunds) return;
+        // Create the company using the CompanyManager
+        const result = this.companyManager.createCompany(
+            companyName, 
+            className, 
+            selectedStudentIds, 
+            memberContributions
+        );
         
-        if (totalContribution <= 0) {
-            Toast.show({ message: 'É necessário que pelo menos um aluno faça uma contribuição para a empresa.', type: 'error' });
+        if (!result.success) {
+            Toast.show({ message: result.message, type: 'error' });
             return;
         }
         
-        // Criar a empresa com as contribuições individuais
-        const id = `company_${Date.now()}`;
-        const company = new Company(id, companyName, className);
-        company.addRevenue('Capital Inicial', totalContribution);
-        company.addMembers(selectedStudentIds);
+        Toast.show({ message: result.message, type: 'success' });
         
-        // Atualizar o saldo dos alunos deduzindo suas contribuições
-        const classStudents = this.classManager.getStudents(className);
-        Object.entries(memberContributions).forEach(([studentId, contribution]) => {
-            const student = classStudents.find(s => s.id === studentId);
-            if (student) {
-                student.deductBalance(contribution);
-            }
-        });
-        this.classManager.saveClasses();
-
+        // Notify that student balances were updated
         document.dispatchEvent(new CustomEvent('studentBalanceUpdated', {
             detail: {
                 studentIds: selectedStudentIds,
                 className: className
             }
         }));
-        
-        this.companies[id] = company;
-        this.saveCompanies();
-        
-        Toast.show({ message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`, type: 'success' });
         
         // Reset form
         companyNameInput.value = '';
@@ -187,156 +119,16 @@ export default class CompanyView {
         // Notify other components that a company has been created
         document.dispatchEvent(new CustomEvent('companyCreated', { 
             detail: { 
-                companyId: company.id,
+                companyId: result.company.id,
                 className: className
             } 
         }));
-        
-        return company;
     }
-
-    /**
-     * Get a company by ID
-     * @param {string} id - Company ID
-     * @returns {Company} The company object
-     */
-    getCompany(id) {
-        return this.companies[id];
-    }
-
-    /**
-     * Get all companies
-     * @returns {Company[]} Array of all companies
-     */
-    getAllCompanies() {
-        this.companies = this.loadCompanies();
-        return Object.values(this.companies);
-    }
-
-    /**
-     * Get companies for a specific class
-     * @param {string} classroomName - Class name
-     * @returns {Company[]} Array of companies in the class
-     */
-    getCompaniesForClass(classroomName) {
-        return Object.values(this.companies)
-            .filter(company => company.classroomName === classroomName);
-    }
-
-    /**
-     * Update a company's details
-     * @param {string} id - Company ID
-     * @param {Object} updates - Object with properties to update
-     * @returns {boolean} True if successful, false if company not found
-     */
-    updateCompany(id, updates) {
-        const company = this.companies[id];
-        if (!company) return false;
-        
-        Object.keys(updates).forEach(key => {
-            company[key] = updates[key];
-        });
-        
-        this.saveCompanies();
-        return true;
-    }
-
-    /**
-     * Delete a company
-     * @param {string} id - Company ID
-     * @returns {boolean} True if successful, false if company not found
-     */
-    deleteCompany(id) {
-        if (this.companies[id]) {
-            delete this.companies[id];
-            this.saveCompanies();
-
-            // Notify other components that a company has been deleted
-            document.dispatchEvent(new CustomEvent('companyDeleted', {
-                detail: { 
-                    companyId: id
-                }
-            }));
-
-            this.renderCompanyList();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Add an expense to a company
-     * @param {string} company - Company object
-     * @param {string} description - Expense description
-     * @param {number} amount - Expense amount
-     * @param {string} date - Expense date
-     * @returns {Object} The created expense or null if company not found
-     */
-    addExpense(company, description, amount, date) {
-        if (!company) return null;
-        
-        const expense = company.addExpense(description, amount, date);
-        this.saveCompanies();
-        
-        return expense;
-    }
-
-    /**
-     * Add revenue to a company
-     * @param {string} company - Company object
-     * @param {string} description - Revenue description
-     * @param {number} amount - Revenue amount
-     * @param {string} date - Revenue date
-     * @returns {Object} The created revenue or null if company not found
-     */
-    addRevenue(company, description, amount, date) {
-        if (!company) return null;
-        
-        const revenue = company.addRevenue(description, amount, date);
-        this.saveCompanies();
-        
-        return revenue;
-    }
-
-    /**
-     * Add funds directly to a company
-     * @param {string} companyId - Company ID
-     * @param {number} amount - Amount to add
-     * @param {string} description - Description of the fund addition
-     * @returns {Object} The created revenue or null if company not found
-     */
-    addFunds(companyId, amount, description = 'Fund addition') {
-        const company = this.companies[companyId];
-        if (!company) return null;
-        
-        const revenue = company.addFunds(amount, description);
-        this.saveCompanies();
-        
-        return revenue;
-    }
-
-    /**
-     * Remove funds directly from a company
-     * @param {string} companyId - Company ID
-     * @param {number} amount - Amount to remove
-     * @param {string} description - Description of the fund removal
-     * @returns {Object} The created expense or null if company not found
-     */
-    removeFunds(companyId, amount, description = 'Fund removal') {
-        const company = this.companies[companyId];
-        if (!company) return null;
-        
-        const expense = company.removeFunds(amount, description);
-        this.saveCompanies();
-        
-        return expense;
-    }    
 
     /**
      * Update class select dropdown for company creation
      */
     updateClassSelect() {
-        this.classManager.loadClasses();
         const classNames = this.classManager.getClassNames();
         
         // Store the current selection
@@ -399,7 +191,7 @@ export default class CompanyView {
      */
     updateCompanySelect() {
         const classSelect = document.querySelector('#company-filter-select');
-        const classNames = Object.values(this.companies).map(company => company.classroomName).filter((value, index, self) => self.indexOf(value) === index);
+        const classNames = this.companyManager.getUniqueClassNames();
 
         // Clear options
         classSelect.innerHTML = '';
@@ -426,7 +218,7 @@ export default class CompanyView {
         const className = companyClassSelect.value;
         const students = this.classManager.getStudents(className);
         
-        // Limpar o container de contribuições
+        // Clear the contributions container
         const studentContributionsContainer = document.querySelector('#student-contributions');
         studentContributionsContainer.innerHTML = '';
         
@@ -438,7 +230,7 @@ export default class CompanyView {
             return;
         }
         
-        // Criar container para as contribuições
+        // Create container for contributions
         const contributionContainer = document.createElement('div');
         contributionContainer.className = 'contribution-container';
         
@@ -447,7 +239,7 @@ export default class CompanyView {
         title.textContent = 'Contribuições para a Empresa:';
         contributionContainer.appendChild(title);
         
-        // Adicionar campos para cada estudante selecionado
+        // Add fields for each selected student
         selectedStudentIds.forEach(studentId => {
             const student = students.find(s => s.id === studentId);
             if (!student) return;
@@ -486,51 +278,35 @@ export default class CompanyView {
      * Set up global event listeners from other managers
      */
     setupGlobalListeners() {
-        // Listen for class list updates from SetupManager
+        // Listen for class list updates 
         document.addEventListener('classSelectsUpdated', () => {
             this.updateClassSelect();
+            this.updateStudentSelect();
+            this.updateCompanySelect();
         });
 
         document.addEventListener('classDeleted', (event) => {
             const className = event.detail.className;
-            // Remove companies associated with the deleted class
-            Object.keys(this.companies).forEach(companyId => {
-                const company = this.companies[companyId];
-                if (company.classroomName === className) {
-                    // remove products from the company
-                    document.dispatchEvent(new CustomEvent('companyDeleted', {
-                        detail: {
-                            companyId: companyId,
-                            className: className
-                        }
-                    }));
-
-                    delete this.companies[companyId];
-                }
-            });
-            this.saveCompanies();
+            
+            // Delete companies associated with the deleted class
+            this.companyManager.deleteCompaniesByClassName(className);
+            
             this.updateClassSelect();
             this.updateCompanySelect();
         });
 
         // Listen for company creation events
-        document.addEventListener('companyCreated', (event) => {
+        document.addEventListener('companyCreated', () => {
             this.updateCompanySelect();
         });
 
         // Listen for product sales
         document.addEventListener('productSalesUpdated', (event) => {
             const { productName, sales, price, companyId } = event.detail;
-            const company = this.getCompany(companyId);
-            this.addRevenue(
-                company,
-                `Venda de produto ${productName}`,
-                sales * price,
-            );
-            this.saveCompanies();
+            
+            this.companyManager.addProductSales(companyId, productName, sales, price);
             this.renderCompanyList();
         });
-        
     }
 
     /**
@@ -543,7 +319,7 @@ export default class CompanyView {
         companiesList.innerHTML = '';
 
         className = className || document.querySelector('#company-filter-select').value;
-        const companies = this.getCompaniesForClass(className);
+        const companies = this.companyManager.getCompaniesForClass(className);
 
         if (companies.length === 0) {
             const emptyMessage = document.createElement('p');
@@ -686,8 +462,17 @@ export default class CompanyView {
                     cancelText: 'Cancelar',
                     type: 'danger',
                     onConfirm: () => {
-                        this.deleteCompany(company.id);
+                        this.companyManager.deleteCompany(company.id);
                         Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
+                        
+                        // Notify other components that a company has been deleted
+                        document.dispatchEvent(new CustomEvent('companyDeleted', {
+                            detail: { 
+                                companyId: company.id
+                            }
+                        }));
+                        
+                        this.renderCompanyList();
                     }
                 });
             });
@@ -742,10 +527,10 @@ export default class CompanyView {
                 }
                 
                 if (isExpense) {
-                    this.addExpense(company, description, amount, date);
+                    this.companyManager.addExpense(company, description, amount, date);
                     Toast.show({ message: 'Despesa adicionada com sucesso!', type: 'success' });
                 } else {
-                    this.addRevenue(company, description, amount, date);
+                    this.companyManager.addRevenue(company, description, amount, date);
                     Toast.show({ message: 'Receita adicionada com sucesso!', type: 'success' });
                 }
                 
@@ -787,8 +572,7 @@ export default class CompanyView {
                 label: 'Valor a distribuir (R$):',
                 type: 'number',
                 placeholder: '0.00',
-                required: true,
-                placeholder: '0.00'
+                required: true
             },
             {
                 id: 'description',
@@ -809,36 +593,23 @@ export default class CompanyView {
                 const { studentId, amount, description } = values;
                 const parsedAmount = parseFloat(amount);
                 
-                // Validate inputs
-                if (!studentId) {
-                    Toast.show({ message: 'Por favor, selecione um membro para receber os lucros.', type: 'error' });
+                if (!studentId || isNaN(parsedAmount) || parsedAmount <= 0) {
+                    Toast.show({ message: 'Por favor, preencha todos os campos corretamente.', type: 'error' });
                     return false;
                 }
                 
-                if (isNaN(parsedAmount) || parsedAmount <= 0) {
-                    Toast.show({ message: 'Por favor, insira um valor válido para distribuir.', type: 'error' });
+                // Use company manager to distribute profits
+                const result = this.companyManager.distributeProfits(
+                    company.id,
+                    studentId,
+                    parsedAmount,
+                    description
+                );
+                
+                if (!result.success) {
+                    Toast.show({ message: result.message, type: 'error' });
                     return false;
                 }
-                
-                if (parsedAmount > company.getProfit()) {
-                    Toast.show({ message: 'O valor não pode ser maior que o lucro disponível.', type: 'error' });
-                    return false;
-                }
-                
-                // Distribute profits in the company (creates an expense)
-                const expense = company.distributeProfits(studentId, parsedAmount, description);
-                if (!expense) {
-                    Toast.show({ message: 'Não foi possível distribuir os lucros. Verifique o saldo e tente novamente.', type: 'error' });
-                    return false;
-                }
-                
-                // Update student balance
-                const student = students.find(s => s.id === studentId);
-                student.addBalance(parsedAmount);
-                this.classManager.saveClasses();
-                
-                // Save company changes
-                this.saveCompanies();
                 
                 // Update UI
                 this.renderCompanyList();
@@ -851,11 +622,7 @@ export default class CompanyView {
                     }
                 }));
                 
-                Toast.show({ 
-                    message: `Distribuição de R$ ${parsedAmount.toFixed(2)} realizada com sucesso para ${student.name}!`, 
-                    type: 'success' 
-                });
-                
+                Toast.show({ message: result.message, type: 'success' });
                 return true;
             }
         });

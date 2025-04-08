@@ -5,10 +5,10 @@
  */
 
 // Import all necessary classes
-import ClassView from './views/class.js';
-import CompanyView from './views/company.js';
-import ProductView from './views/product.js';
-import NavigationView from './views/navigation.js';
+import ClassView from './views/class-view.js';
+import CompanyView from './views/company-view.js';
+import ProductView from './views/product-view.js';
+import NavigationView from './views/navigation-view.js';
 
 // Initialize core manager components
 new ClassView().initialize();
