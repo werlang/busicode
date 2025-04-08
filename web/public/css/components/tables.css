@@ -1,0 +1,77 @@
+/* Table component styles */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.empty-table {
+  text-align: center;
+  font-style: italic;
+  color: #6c757d;
+  padding: 20px;
+}
+
+/* Product table specific styles */
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.product-table th, 
+.product-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.product-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+/* Action buttons in tables */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* Data labels for table cells */
+.data-table td[data-label] {
+  position: relative;
+}
+
+@media (min-width: 769px) {
+  .data-table td[data-label] {
+    position: static;
+  }
+
+  .data-table td[data-label]::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -18px;
+    left: 8px;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .data-table td[data-label]:hover::after {
+    opacity: 1;
+  }
+}
