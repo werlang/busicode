@@ -2,17 +2,17 @@
  * Company Manager
  * Manages companies and their finances in the BusiCode application
  */
-import Storage from './storage.js';
+import Storage from '../helpers/storage.js';
 import Company from '../model/company.js';
-import ClassManager from './class-manager.js';
+import ClassView from './class.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 
-export default class CompanyManager {
+export default class CompanyView {
     constructor() {
         this.storage = new Storage('busicode_companies');
         this.companies = this.loadCompanies();
-        this.classManager = new ClassManager();
+        this.classManager = new ClassView();
     }
 
     /**

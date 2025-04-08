@@ -2,7 +2,6 @@
  * Company Class
  * Represents a company in the BusiCode application with financial tracking
  */
-import Product from './product.js';
 
 export default class Company {
     constructor(id, name, classroomName, memberContributions, memberIds) {

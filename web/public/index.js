@@ -5,15 +5,15 @@
  */
 
 // Import all necessary classes
-import ClassManager from './helpers/class-manager.js';
-import CompanyManager from './helpers/company-manager.js';
-import ProductManager from './helpers/product-manager.js';
-import NavigationManager from './components/navigation-manager.js';
+import ClassView from './views/class.js';
+import CompanyView from './views/company.js';
+import ProductView from './views/product.js';
+import NavigationView from './views/navigation.js';
 
 // Initialize core manager components
-new ClassManager().initialize();
-new CompanyManager().initialize();
-new ProductManager().initialize();
+new ClassView().initialize();
+new CompanyView().initialize();
+new ProductView().initialize();
 
 // Initialize navigation manager
-new NavigationManager();
+new NavigationView();

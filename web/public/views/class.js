@@ -2,12 +2,12 @@
  * Class Manager
  * Manages classes and students in the BusiCode application
  */
-import Storage from './storage.js';
+import Storage from '../helpers/storage.js';
 import Student from '../model/student.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 
-export default class ClassManager {
+export default class ClassView {
     constructor() {
         this.storage = new Storage('busicode_classes');
         this.loadClasses();

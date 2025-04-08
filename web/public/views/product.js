@@ -2,19 +2,19 @@
  * Product Manager
  * Manages products and product launches in the BusiCode application
  */
-import Storage from './storage.js';
-import CompanyManager from './company-manager.js';
-import ClassManager from './class-manager.js';
+import Storage from '../helpers/storage.js';
+import CompanyView from './company.js';
+import ClassView from './class.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 import Product from '../model/product.js';
 
-export default class ProductManager {
+export default class ProductView {
     constructor() {
         this.storage = new Storage('busicode_product_launches');
         this.launchedProducts = this.loadLaunchedProducts() || [];
-        this.companyManager = new CompanyManager();
-        this.classManager = new ClassManager();
+        this.companyManager = new CompanyView();
+        this.classManager = new ClassView();
     }
 
     /**

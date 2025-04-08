@@ -4,7 +4,7 @@
  */
 import Storage from '../helpers/storage.js';
 
-export default class NavigationManager {
+export default class NavigationView {
     constructor() {
         this.storageManager = new Storage('busicode_navigation');
         this.setupNavigation();
