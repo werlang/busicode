@@ -201,6 +201,49 @@ export default class ProductManager {
     }
 
     /**
+     * Filter products by release date
+     * @param {Date|string} startDate - Start date for filtering
+     * @param {Date|string} endDate - End date for filtering (optional)
+     * @returns {Array} Filtered array of products
+     */
+    getProductsByDateRange(startDate, endDate = null) {
+        const products = this.getAllLaunchedProducts();
+        
+        // Convert string dates to Date objects if needed
+        const start = startDate instanceof Date ? startDate : new Date(startDate);
+        const end = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : new Date();
+        
+        // Set end date to end of day if provided
+        if (endDate) {
+            end.setHours(23, 59, 59, 999);
+        }
+        
+        return products.filter(product => {
+            const launchDate = new Date(product.launchedAt);
+            return launchDate >= start && launchDate <= end;
+        });
+    }
+
+    /**
+     * Get products launched on a specific date
+     * @param {Date|string} date - The date to filter by
+     * @returns {Array} Filtered array of products
+     */
+    getProductsByDate(date) {
+        const targetDate = date instanceof Date ? date : new Date(date);
+        
+        // Set to start of day
+        const startDate = new Date(targetDate);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Set to end of day
+        const endDate = new Date(targetDate);
+        endDate.setHours(23, 59, 59, 999);
+        
+        return this.getProductsByDateRange(startDate, endDate);
+    }
+
+    /**
      * Get a product by ID
      * @param {string} productId - ID of the product
      * @returns {Product|null} The product object or null if not found

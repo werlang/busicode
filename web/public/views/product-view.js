@@ -52,6 +52,23 @@ export default class ProductView {
                 this.renderLaunchedProducts();
             });
         }
+        
+        // Date filter event listeners
+        const applyDateFilterBtn = document.querySelector('#apply-date-filter');
+        if (applyDateFilterBtn) {
+            applyDateFilterBtn.addEventListener('click', () => {
+                this.renderLaunchedProducts();
+            });
+        }
+        
+        const clearDateFilterBtn = document.querySelector('#clear-date-filter');
+        if (clearDateFilterBtn) {
+            clearDateFilterBtn.addEventListener('click', () => {
+                document.querySelector('#product-start-date').value = '';
+                document.querySelector('#product-end-date').value = '';
+                this.renderLaunchedProducts();
+            });
+        }
 
         // Listen for company creation event
         document.addEventListener('companyCreated', () => {
@@ -237,19 +254,52 @@ export default class ProductView {
         // Get selected class filter
         const selectedClass = document.querySelector('#product-filter-select').value;
         
+        // Get date filters if they exist
+        const startDateInput = document.querySelector('#product-start-date');
+        const endDateInput = document.querySelector('#product-end-date');
+        const startDate = startDateInput && startDateInput.value ? startDateInput.value : null;
+        const endDate = endDateInput && endDateInput.value ? endDateInput.value : null;
+        
         // Get products filtered by class if needed
-        const filteredProducts = selectedClass 
+        let filteredProducts = selectedClass 
             ? this.productManager.getLaunchedProductsByClass(selectedClass)
             : this.productManager.getAllLaunchedProducts();
+        
+        // Apply date filtering if either date is set
+        if (startDate || endDate) {
+            if (startDate && endDate) {
+                filteredProducts = this.productManager.getProductsByDateRange(startDate, endDate);
+            } else if (startDate) {
+                filteredProducts = this.productManager.getProductsByDateRange(startDate);
+            } else if (endDate) {
+                // For end date only, we get all products up to that date
+                filteredProducts = this.productManager.getProductsByDateRange(new Date(0), endDate);
+            }
+            
+            // Re-apply class filter if needed
+            if (selectedClass) {
+                filteredProducts = filteredProducts.filter(product => {
+                    const company = this.companyManager.getCompany(product.companyId);
+                    return company && company.classroomName === selectedClass;
+                });
+            }
+        }
         
         if (filteredProducts.length === 0) {
             const emptyRow = document.createElement('tr');
             const emptyCell = document.createElement('td');
             emptyCell.colSpan = 7;
             emptyCell.className = 'empty-table';
-            emptyCell.textContent = selectedClass 
-                ? `Nenhum produto lançado para a turma "${selectedClass}".`
-                : 'Nenhum produto lançado.';
+            
+            let emptyMessage = 'Nenhum produto lançado.';
+            if (selectedClass) {
+                emptyMessage = `Nenhum produto lançado para a turma "${selectedClass}".`;
+            }
+            if (startDate || endDate) {
+                emptyMessage += ' (Filtro de data aplicado)';
+            }
+            
+            emptyCell.textContent = emptyMessage;
             emptyRow.appendChild(emptyCell);
             launchProductsBody.appendChild(emptyRow);
             return;
