@@ -22,6 +22,8 @@ export default class ClassView {
         document.querySelector('#class-bulk-action-btn')?.addEventListener('click', () => this.showClassBulkActionModal());
 
         document.addEventListener('studentBalanceUpdated', () => this.renderClassList());
+
+        return this;
     }
 
     /**

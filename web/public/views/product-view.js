@@ -23,6 +23,8 @@ export default class ProductView {
         this.updateClassFilter();
         this.updateCompanyDropdown();
         this.renderLaunchedProducts();
+
+        return this;
     }
 
     /**

@@ -38,6 +38,8 @@ export default class CompanyView {
                                                             
         // Set up global event listeners
         this.setupGlobalListeners();
+
+        return this;
     }
 
     /**
