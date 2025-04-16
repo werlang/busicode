@@ -87,8 +87,8 @@ export default class ClassManager {
         let addedCount = 0;
         
         names.forEach(name => {
-            // Generate a unique ID for the student
-            const id = `student_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            // Generate a unique ID for the student now + rando string
+            const id = `student_${Date.now()}_${Math.random().toString(36).slice(2)}`;
             this.classes[className].push(new Student(id, name, initialBalance));
             addedCount++;
         });
@@ -110,7 +110,7 @@ export default class ClassManager {
         }
         
         // Generate a unique ID for the student
-        const id = `student_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const id = `student_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const student = new Student(id, studentName, initialBalance);
         
         this.classes[className].push(student);

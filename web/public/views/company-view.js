@@ -431,25 +431,31 @@ export default class CompanyView {
             addRevenueBtn.textContent = 'Adicionar Receita';
             addRevenueBtn.className = 'revenue-button';
             addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
+            
+            // Add Edit Students button
+            const editStudentsBtn = document.createElement('button');
+            editStudentsBtn.textContent = 'Editar Alunos';
+            editStudentsBtn.className = 'edit-students-button';
+            editStudentsBtn.addEventListener('click', () => this.showEditStudentsModal(company));
 
-            // Add distribute profits button
-            const distributeProfitsBtn = document.createElement('button');
-            distributeProfitsBtn.textContent = 'Distribuir Lucros';
-            distributeProfitsBtn.className = 'profits-button';
-            distributeProfitsBtn.title = 'Distribuir lucros para os membros da empresa';
-            distributeProfitsBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
+            const profitDistBtn = document.createElement('button');
+            profitDistBtn.textContent = 'Distribuir Lucros';
+            profitDistBtn.className = 'profit-dist-button';
+            profitDistBtn.title = 'Distribuir lucros para os membros da empresa';
+            profitDistBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
             
             // Only enable the button if there are profits to distribute
             if (company.getProfit() <= 0) {
-                distributeProfitsBtn.disabled = true;
-                distributeProfitsBtn.title = 'Não há lucros disponíveis para distribuir';
+                profitDistBtn.disabled = true;
+                profitDistBtn.title = 'Não há lucros disponíveis para distribuir';
             }
             
-            distributeProfitsBtn.addEventListener('click', () => this.showDistributeProfitsModal(company));
+            profitDistBtn.addEventListener('click', () => this.showDistributeProfitsModal(company));
 
             buttonContainer.appendChild(addExpenseBtn);
             buttonContainer.appendChild(addRevenueBtn);
-            buttonContainer.appendChild(distributeProfitsBtn);
+            buttonContainer.appendChild(editStudentsBtn);
+            buttonContainer.appendChild(profitDistBtn);
             companyCard.appendChild(buttonContainer);
 
             // Delete company button
@@ -700,5 +706,198 @@ export default class CompanyView {
             confirmText: 'Fechar',
             cancelText: null
         });
+    }
+
+    /**
+     * Show a modal dialog for editing students in a company
+     * @param {Object} company - The company object
+     */
+    showEditStudentsModal(company) {
+        // Get all available students from the class
+        const allClassStudents = this.classManager.getStudents(company.classroomName);
+        
+        // Create two arrays: one for students in the company and one for students not in the company
+        const companyStudents = allClassStudents.filter(student => 
+            company.memberIds.includes(student.id)
+        );
+        
+        const availableStudents = allClassStudents.filter(student => 
+            !company.memberIds.includes(student.id)
+        );
+        
+        // Create the modal content with two select lists
+        const modalContent = document.createElement('div');
+        modalContent.className = 'edit-students-modal';
+        
+        // Create container for the two columns
+        const columnsContainer = document.createElement('div');
+        columnsContainer.className = 'edit-students-columns';
+        
+        // Left column - Available students
+        const leftColumn = document.createElement('div');
+        leftColumn.className = 'edit-students-column';
+        
+        const leftHeader = document.createElement('h4');
+        leftHeader.textContent = 'Alunos Disponíveis';
+        leftColumn.appendChild(leftHeader);
+        
+        const availableList = document.createElement('select');
+        availableList.id = 'available-students';
+        availableList.multiple = true;
+        availableList.className = 'student-select';
+        availableList.size = 10;
+        
+        if (availableStudents.length === 0) {
+            const emptyOption = document.createElement('option');
+            emptyOption.disabled = true;
+            emptyOption.textContent = 'Não há alunos disponíveis';
+            availableList.appendChild(emptyOption);
+        } else {
+            availableStudents.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = student.name;
+                availableList.appendChild(option);
+            });
+        }
+        
+        leftColumn.appendChild(availableList);
+        
+        // Center column - Controls
+        const centerColumn = document.createElement('div');
+        centerColumn.className = 'edit-students-controls';
+        
+        const addButton = document.createElement('button');
+        addButton.innerHTML = '&rarr;';
+        addButton.className = 'student-transfer-btn';
+        addButton.title = 'Adicionar à empresa';
+        addButton.disabled = availableStudents.length === 0;
+        
+        const removeButton = document.createElement('button');
+        removeButton.innerHTML = '&larr;';
+        removeButton.className = 'student-transfer-btn';
+        removeButton.title = 'Remover da empresa';
+        removeButton.disabled = companyStudents.length === 0;
+        
+        centerColumn.appendChild(addButton);
+        centerColumn.appendChild(removeButton);
+        
+        // Right column - Company students
+        const rightColumn = document.createElement('div');
+        rightColumn.className = 'edit-students-column';
+        
+        const rightHeader = document.createElement('h4');
+        rightHeader.textContent = 'Alunos na Empresa';
+        rightColumn.appendChild(rightHeader);
+        
+        const companyList = document.createElement('select');
+        companyList.id = 'company-students-list';
+        companyList.multiple = true;
+        companyList.className = 'student-select';
+        companyList.size = 10;
+        
+        if (companyStudents.length === 0) {
+            const emptyOption = document.createElement('option');
+            emptyOption.disabled = true;
+            emptyOption.textContent = 'Não há alunos na empresa';
+            companyList.appendChild(emptyOption);
+        } else {
+            companyStudents.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = student.name;
+                companyList.appendChild(option);
+            });
+        }
+        
+        rightColumn.appendChild(companyList);
+        
+        // Assemble the columns
+        columnsContainer.appendChild(leftColumn);
+        columnsContainer.appendChild(centerColumn);
+        columnsContainer.appendChild(rightColumn);
+        modalContent.appendChild(columnsContainer);
+        
+        // Create the modal
+        Modal.show({
+            title: `Editar Alunos - ${company.name}`,
+            message: modalContent.outerHTML,
+            confirmText: 'Salvar',
+            cancelText: 'Cancelar',
+            onConfirm: () => {
+                // Get current list of students in the company from the modal
+                const companyStudentsList = document.querySelector('#company-students-list');
+                const updatedMemberIds = Array.from(companyStudentsList.options).map(option => option.value);
+                
+                // Update the company with the new list of students
+                const result = this.companyManager.updateCompanyStudents(company.id, updatedMemberIds);
+                
+                if (result.success) {
+                    this.renderCompanyList();
+                    Toast.show({ message: 'Lista de alunos atualizada com sucesso!', type: 'success' });
+                } else {
+                    Toast.show({ message: result.message || 'Erro ao atualizar a lista de alunos.', type: 'error' });
+                }
+            }
+        });
+        
+        // Add event listeners after the modal is created
+        // This has to be done after the modal is in the DOM
+        setTimeout(() => {
+            const availableStudentsSelect = document.querySelector('#available-students');
+            const companyStudentsSelect = document.querySelector('#company-students-list');
+            const addBtn = document.querySelector('.edit-students-controls .student-transfer-btn:first-child');
+            const removeBtn = document.querySelector('.edit-students-controls .student-transfer-btn:last-child');
+            
+            // Add selected students to company
+            addBtn.addEventListener('click', () => {
+                const selectedOptions = Array.from(availableStudentsSelect.selectedOptions);
+                
+                if (selectedOptions.length === 0) {
+                    Toast.show({ message: 'Selecione pelo menos um aluno para adicionar.', type: 'warning' });
+                    return;
+                }
+                
+                selectedOptions.forEach(option => {
+                    // Create a new option for the company list
+                    const newOption = document.createElement('option');
+                    newOption.value = option.value;
+                    newOption.textContent = option.textContent;
+                    companyStudentsSelect.appendChild(newOption);
+                    
+                    // Remove from available list
+                    availableStudentsSelect.removeChild(option);
+                });
+                
+                // Update button states
+                addBtn.disabled = availableStudentsSelect.options.length === 0;
+                removeBtn.disabled = companyStudentsSelect.options.length === 0;
+            });
+            
+            // Remove selected students from company
+            removeBtn.addEventListener('click', () => {
+                const selectedOptions = Array.from(companyStudentsSelect.selectedOptions);
+                
+                if (selectedOptions.length === 0) {
+                    Toast.show({ message: 'Selecione pelo menos um aluno para remover.', type: 'warning' });
+                    return;
+                }
+                
+                selectedOptions.forEach(option => {
+                    // Create a new option for the available list
+                    const newOption = document.createElement('option');
+                    newOption.value = option.value;
+                    newOption.textContent = option.textContent;
+                    availableStudentsSelect.appendChild(newOption);
+                    
+                    // Remove from company list
+                    companyStudentsSelect.removeChild(option);
+                });
+                
+                // Update button states
+                addBtn.disabled = availableStudentsSelect.options.length === 0;
+                removeBtn.disabled = companyStudentsSelect.options.length === 0;
+            });
+        }, 100); // Small delay to ensure DOM elements are ready
     }
 }

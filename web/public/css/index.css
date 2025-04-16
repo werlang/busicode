@@ -22,6 +22,7 @@
 @import 'modules/students.css';
 @import 'modules/companies.css';
 @import 'modules/products.css';
+@import 'modules/edit-students.css';
 
 /* Utilities and responsive */
 @import 'utils/utilities.css';

@@ -86,7 +86,7 @@ export default class ProductManager {
         
         // Add product to launched products list
         const launchedProduct = new Product({
-            id: `launch_${Date.now()}`,
+            id: `launch_${Date.now()}_${Math.random().toString(36).slice(2)}`,
             name: productName,
             price: productPrice,
             companyId,

@@ -97,7 +97,7 @@ export default class CompanyManager {
         }
         
         // Create the company with individual contributions
-        const id = `company_${Date.now()}`;
+        const id = `company_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const company = new Company(id, companyName, className);
         company.addRevenue('Capital Inicial', totalContribution);
         company.addMembers(selectedStudentIds);
@@ -371,5 +371,28 @@ export default class CompanyManager {
         );
         
         return revenue;
+    }
+
+    /**
+     * Update the list of students in a company
+     * @param {string} companyId - ID of the company
+     * @param {Array} studentIds - Array of student IDs to set as company members
+     * @returns {Object} Result object with status and message
+     */
+    updateCompanyStudents(companyId, studentIds) {
+        const company = this.getCompany(companyId);
+        if (!company) {
+            return { success: false, message: 'Empresa não encontrada.' };
+        }
+
+        // Update the company's member IDs
+        company.memberIds = studentIds;
+        this.saveCompanies();
+
+        return { 
+            success: true, 
+            message: 'Lista de alunos atualizada com sucesso.',
+            company
+        };
     }
 }
