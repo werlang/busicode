@@ -118,18 +118,28 @@ export default class ProductView {
         }
         
         // Get unique class names from companies that have products
-        const classNames = this.productManager.getUniqueClassNames();
-        
+        const products = this.productManager.getAllLaunchedProducts();
+        const companies = products.map(product => this.companyManager.getCompany(product.companyId));
+        const classes = companies.map(company => {
+            const classroom = this.classManager.getClassById(company.classroomId);
+            return {
+                id: classroom.id,
+                name: classroom.name,
+            }
+        });
+        const uniqueClasses = classes.filter((value, index, self) => self.map(e => e.id).indexOf(value.id) === index);
+
+
         // Add all available classes
-        classNames.forEach(className => {
+        uniqueClasses.forEach(classroom => {
             const option = document.createElement('option');
-            option.value = className;
-            option.textContent = className;
+            option.value = classroom.id;
+            option.textContent = classroom.name;
             filterSelect.appendChild(option);
         });
         
         // Restore selection if possible
-        if (classNames.includes(currentSelection)) {
+        if (currentSelection && [...filterSelect.options].some(opt => opt.value === currentSelection)) {
             filterSelect.value = currentSelection;
         }
     }
@@ -159,6 +169,7 @@ export default class ProductView {
         
         // Add filtered companies
         companies.forEach(company => {
+            company.classroomName = this.classManager.getClassById(company.classroomId).name;
             const option = document.createElement('option');
             option.value = company.id;
             option.textContent = `${company.name} (${company.classroomName})`;
@@ -253,6 +264,7 @@ export default class ProductView {
         
         // Get selected class filter
         const selectedClass = document.querySelector('#product-filter-select').value;
+        const selectedClassName = document.querySelector('#product-filter-select').selectedOptions[0].textContent;
         
         // Get date filters if they exist
         const startDateInput = document.querySelector('#product-start-date');
@@ -262,7 +274,7 @@ export default class ProductView {
         
         // Get products filtered by class if needed
         let filteredProducts = selectedClass 
-            ? this.productManager.getLaunchedProductsByClass(selectedClass)
+            ? this.productManager.getLaunchedProductsByClassId(selectedClass)
             : this.productManager.getAllLaunchedProducts();
         
         // Apply date filtering if either date is set
@@ -293,7 +305,7 @@ export default class ProductView {
             
             let emptyMessage = 'Nenhum produto lançado.';
             if (selectedClass) {
-                emptyMessage = `Nenhum produto lançado para a turma "${selectedClass}".`;
+                emptyMessage = `Nenhum produto lançado para a turma "${selectedClassName}".`;
             }
             if (startDate || endDate) {
                 emptyMessage += ' (Filtro de data aplicado)';

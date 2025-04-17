@@ -47,13 +47,14 @@ export default class ProductManager {
 
     /**
      * Get launched products for a specific class
-     * @param {string} className - Class name to filter by
+     * @param {string} classId - Class ID to filter products by
      * @returns {Array} Filtered array of launched products
      */
-    getLaunchedProductsByClass(className) {
+    getLaunchedProductsByClassId(classId) {
         return this.getAllLaunchedProducts().filter(product => {
             const company = this.companyManager.getCompany(product.companyId);
-            return company && company.classroomName === className;
+            const classroom = this.companyManager.classManager.getClassById(company.classroomId);
+            return classroom && classroom.id === classId;
         });
     }
 
@@ -184,20 +185,6 @@ export default class ProductManager {
             product,
             company
         };
-    }
-
-    /**
-     * Get unique class names from products
-     * @returns {Array} Array of unique class names
-     */
-    getUniqueClassNames() {
-        const classNames = [...new Set(
-            this.getAllLaunchedProducts()
-                .map(product => this.companyManager.getCompany(product.companyId)?.classroomName)
-                .filter(className => className)
-        )];
-        
-        return classNames;
     }
 
     /**

@@ -26,7 +26,7 @@ export default class CompanyManager {
             data[id] = new Company(
                 companyData.id,
                 companyData.name,
-                companyData.classroomName,
+                companyData.classroomId || null, // May be null for old data
                 companyData.memberContributions,
                 companyData.memberIds
             );
@@ -53,18 +53,26 @@ export default class CompanyManager {
     /**
      * Create a new company
      * @param {string} companyName - Company name
-     * @param {string} className - Class name
+     * @param {string} classId - Class ID
      * @param {Array} selectedStudentIds - Array of selected student IDs
      * @param {Object} memberContributions - Object mapping member IDs to their contributions
      * @returns {Object} Result object with company and status information
      */
-    createCompany(companyName, className, selectedStudentIds, memberContributions) {
-        if (!className || !companyName || selectedStudentIds.length === 0) {
+    createCompany(companyName, classId, selectedStudentIds, memberContributions) {
+        if (!classId || !companyName || selectedStudentIds.length === 0) {
             return { success: false, message: 'Missing required information for company creation' };
         }
         
+        // Get class information
+        const classObj = this.classManager.getClassById(classId);
+        if (!classObj) {
+            return { success: false, message: 'Turma não encontrada' };
+        }
+        
+        const className = classObj.name;
+        
         let totalContribution = 0;
-        const students = this.classManager.getStudents(className);
+        const students = this.classManager.getStudents(classId);
         
         // Verify if each student has sufficient balance for their contribution
         let insufficientFunds = false;
@@ -98,14 +106,13 @@ export default class CompanyManager {
         
         // Create the company with individual contributions
         const id = `company_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const company = new Company(id, companyName, className);
+        const company = new Company(id, companyName, classId, className);
         company.addRevenue('Capital Inicial', totalContribution);
         company.addMembers(selectedStudentIds);
         
         // Update student balances by deducting their contributions
-        const classStudents = this.classManager.getStudents(className);
         Object.entries(memberContributions).forEach(([studentId, contribution]) => {
-            const student = classStudents.find(s => s.id === studentId);
+            const student = students.find(s => s.id === studentId);
             if (student) {
                 student.deductBalance(contribution);
             }
@@ -120,6 +127,7 @@ export default class CompanyManager {
             message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`,
             company,
             studentIds: selectedStudentIds,
+            classId,
             className,
             totalContribution
         };
@@ -145,12 +153,15 @@ export default class CompanyManager {
 
     /**
      * Get companies for a specific class
-     * @param {string} classroomName - Class name
+     * @param {string} classId - Class ID
      * @returns {Company[]} Array of companies in the class
      */
-    getCompaniesForClass(classroomName) {
+    getCompaniesForClass(classId) {
+        // Support both ID-based and name-based lookup for backward compatibility
         return Object.values(this.companies)
-            .filter(company => company.classroomName === classroomName);
+            .filter(company => {
+                return company.classroomId === classId;
+            });
     }
 
     /**
@@ -272,15 +283,17 @@ export default class CompanyManager {
             return { success: false, message: 'O valor não pode ser maior que o lucro disponível' };
         }
         
-        // Get the student
-        const students = this.classManager.getStudents(company.classroomName);
+        // Get the student - try with class ID first, then fall back to class name
+        let students = [];
+        students = this.classManager.getStudents(company.classroomId);
+        
         const student = students.find(s => s.id === studentId);
         if (!student) {
             return { success: false, message: 'Aluno não encontrado' };
         }
         
         // Add the expense to the company
-        const expense = company.distributeProfits(studentId, amount, description);
+        const expense = company.distributeProfits(studentId, student.name, amount, description);
         if (!expense) {
             return { success: false, message: 'Não foi possível distribuir os lucros' };
         }
@@ -297,49 +310,67 @@ export default class CompanyManager {
             message: `Distribuição de R$ ${amount.toFixed(2)} realizada com sucesso para ${student.name}!`, 
             expense,
             studentId,
-            className: company.classroomName
+            classId: company.classroomId,
         };
     }
     
     /**
      * Get all classes with their companies
-     * @returns {Object} Object mapping class names to their company count
+     * @returns {Object} Object mapping class IDs and names to their company lists
      */
     getClassesWithCompanies() {
         const allCompanies = this.getAllCompanies();
         const classesWithCompanies = {};
         
-        // Get all class names that have companies
+        // Get all classes that have companies
         allCompanies.forEach(company => {
-            if (!classesWithCompanies[company.classroomName]) {
-                classesWithCompanies[company.classroomName] = [];
+            const key = company.classroomId;
+            if (!classesWithCompanies[key]) {
+                classesWithCompanies[key] = {
+                    id: company.classroomId,
+                    companies: []
+                };
             }
-            classesWithCompanies[company.classroomName].push(company);
+            classesWithCompanies[key].companies.push(company);
         });
         
         return classesWithCompanies;
     }
     
     /**
-     * Get unique class names that have companies
-     * @returns {string[]} Array of class names
+     * Get unique class IDs that have companies
+     * @returns {Array} Array of objects with class ID and name
      */
-    getUniqueClassNames() {
+    getUniqueClasses() {
         const allCompanies = this.getAllCompanies();
-        return [...new Set(allCompanies.map(company => company.classroomName))];
+        const uniqueClasses = new Map();
+        
+        allCompanies.forEach(company => {
+            const key = company.classroomId;
+            if (!uniqueClasses.has(key)) {
+                uniqueClasses.set(key, {
+                    id: company.classroomId,
+                    name: this.classManager.getClassById(company.classroomId)?.name || 'Unknown'
+                });
+            }
+        });
+        
+        return Array.from(uniqueClasses.values());
     }
     
     /**
      * Delete all companies associated with a class
-     * @param {string} className - The name of the class
+     * @param {string} classId - The ID of the class
      * @returns {number} The number of companies deleted
      */
-    deleteCompaniesByClassName(className) {
+    deleteCompaniesByClass(classId) {
         let deletedCount = 0;
         
         Object.keys(this.companies).forEach(companyId => {
             const company = this.companies[companyId];
-            if (company.classroomName === className) {
+            
+            // Match by class ID
+            if (classId && company.classroomId === classId) {
                 delete this.companies[companyId];
                 deletedCount++;
             }

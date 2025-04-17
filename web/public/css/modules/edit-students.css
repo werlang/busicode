@@ -1,3 +1,69 @@
+/* Class name renaming styles */
+.class-name-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.class-name-display {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.edit-class-name-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  border-radius: var(--border-radius);
+  transition: background-color 0.2s ease;
+}
+
+.edit-class-name-btn:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.rename-class-input {
+  font-size: 1.2rem;
+  padding: 4px 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--border-radius);
+  color: var(--text-color);
+  min-width: 200px;
+}
+
+.rename-class-save,
+.rename-class-cancel {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+}
+
+.rename-class-save {
+  color: var(--success-color);
+}
+
+.rename-class-cancel {
+  color: var(--danger-color);
+}
+
+.rename-class-save:hover {
+  background-color: rgba(46, 204, 113, 0.1);
+}
+
+.rename-class-cancel:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+}
+
+
+
+
+
 /* Edit students modal styles */
 .edit-students-modal {
   width: 100%;
@@ -70,7 +136,6 @@
 .student-select option {
   padding: 8px;
   margin-bottom: 2px;
-  background-color: #f9f9f9;
   border-radius: 4px;
 }
 
@@ -86,3 +151,4 @@
 .edit-students-button:hover {
   background-color: #2980b9;
 }
+

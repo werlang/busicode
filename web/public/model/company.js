@@ -4,10 +4,10 @@
  */
 
 export default class Company {
-    constructor(id, name, classroomName, memberContributions, memberIds) {
+    constructor(id, name, classroomId, memberContributions, memberIds) {
         this.id = id;
         this.name = name;
-        this.classroomName = classroomName;
+        this.classroomId = classroomId;
         
         // Armazena as contribuições individuais de cada membro
         this.memberContributions = memberContributions || {};
@@ -194,7 +194,7 @@ export default class Company {
      * @param {string} description - Descrição da distribuição
      * @returns {Object|null} - O objeto de despesa criado ou null se falhar
      */
-    distributeProfits(memberId, amount, description = 'Distribuição de lucros') {
+    distributeProfits(memberId, memberName, amount, description = 'Distribuição de lucros') {
         // Verifica se o membro pertence à empresa
         if (!this.memberIds.includes(memberId)) return null;
         
@@ -203,7 +203,7 @@ export default class Company {
         if (isNaN(amount) || amount <= 0 || amount > this.getProfit()) return null;
         
         // Registra como uma despesa
-        const descriptionWithMember = `${description} para membro: ${memberId}`;
+        const descriptionWithMember = `${description} para membro: ${memberName}`;
         return this.addExpense(descriptionWithMember, amount);
     }
 }

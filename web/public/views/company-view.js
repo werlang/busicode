@@ -46,8 +46,8 @@ export default class CompanyView {
      * Create a new company from UI input
      */
     createCompany() {
-        const classNameInput = document.querySelector('#company-class-select');
-        const className = classNameInput.value;
+        const classSelect = document.querySelector('#company-class-select');
+        const classId = classSelect.value;
         const companyNameInput = document.querySelector('#company-name');
         const companyName = companyNameInput.value;
         const companyStudentsSelect = document.querySelector('#company-students');
@@ -55,7 +55,7 @@ export default class CompanyView {
         // Get selected student IDs
         const selectedStudentIds = Array.from(companyStudentsSelect.selectedOptions).map(option => option.value);
         
-        if (!className) {
+        if (!classId) {
             Toast.show({ message: 'Por favor, selecione uma turma.', type: 'error' });
             return;
         }
@@ -86,7 +86,7 @@ export default class CompanyView {
         // Create the company using the CompanyManager
         const result = this.companyManager.createCompany(
             companyName, 
-            className, 
+            classId, 
             selectedStudentIds, 
             memberContributions
         );
@@ -102,7 +102,8 @@ export default class CompanyView {
         document.dispatchEvent(new CustomEvent('studentBalanceUpdated', {
             detail: {
                 studentIds: selectedStudentIds,
-                className: className
+                classId: classId,
+                className: result.className // Use the class name returned from create operation
             }
         }));
         
@@ -122,7 +123,8 @@ export default class CompanyView {
         document.dispatchEvent(new CustomEvent('companyCreated', { 
             detail: { 
                 companyId: result.company.id,
-                className: className
+                classId: classId,
+                className: result.className
             } 
         }));
     }
@@ -131,7 +133,7 @@ export default class CompanyView {
      * Update class select dropdown for company creation
      */
     updateClassSelect() {
-        const classNames = this.classManager.getClassNames();
+        const classes = this.classManager.getAllClasses();
         
         // Store the current selection
         const companyClassSelect = document.querySelector('#company-class-select');
@@ -143,15 +145,16 @@ export default class CompanyView {
         }
         
         // Add class options
-        classNames.forEach(className => {
+        classes.forEach(classObj => {
             const option = document.createElement('option');
-            option.value = className;
-            option.textContent = className;
+            option.value = classObj.id;
+            option.textContent = classObj.name;
             companyClassSelect.appendChild(option);
         });
         
         // Restore selection if possible
-        if (classNames.includes(currentSelection)) {
+        const classExists = classes.some(c => c.id === currentSelection);
+        if (classExists) {
             companyClassSelect.value = currentSelection;
         }
         
@@ -164,8 +167,8 @@ export default class CompanyView {
      */
     updateStudentSelect() {
         const companyClassSelect = document.querySelector('#company-class-select');
-        const className = companyClassSelect.value;
-        const students = className ? this.classManager.getStudents(className) : [];
+        const classId = companyClassSelect.value;
+        const students = classId ? this.classManager.getStudents(classId) : [];
         
         // Clear options
         const companyStudentsSelect = document.querySelector('#company-students');
@@ -193,16 +196,22 @@ export default class CompanyView {
      */
     updateCompanySelect() {
         const classSelect = document.querySelector('#company-filter-select');
-        const classNames = this.companyManager.getUniqueClassNames();
+        const classes = this.companyManager.getUniqueClasses();
 
         // Clear options
         classSelect.innerHTML = '';
         
+        // Add "All Classes" option
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'Todas as Turmas';
+        classSelect.appendChild(allOption);
+        
         // Add company options
-        classNames.forEach(className => {
+        classes.forEach(classObj => {
             const option = document.createElement('option');
-            option.value = className;
-            option.textContent = className;
+            option.value = classObj.id;
+            option.textContent = classObj.name;
             classSelect.appendChild(option);
         });
 
@@ -217,8 +226,8 @@ export default class CompanyView {
         const companyClassSelect = document.querySelector('#company-class-select');
         const companyStudentsSelect = document.querySelector('#company-students');
         const selectedStudentIds = Array.from(companyStudentsSelect.selectedOptions).map(option => option.value);
-        const className = companyClassSelect.value;
-        const students = this.classManager.getStudents(className);
+        const classId = companyClassSelect.value;
+        const students = this.classManager.getStudents(classId);
         
         // Clear the contributions container
         const studentContributionsContainer = document.querySelector('#student-contributions');
@@ -288,13 +297,23 @@ export default class CompanyView {
         });
 
         document.addEventListener('classDeleted', (event) => {
+            const classId = event.detail.classId;
             const className = event.detail.className;
             
             // Delete companies associated with the deleted class
-            this.companyManager.deleteCompaniesByClassName(className);
+            this.companyManager.deleteCompaniesByClass(classId, className);
             
             this.updateClassSelect();
             this.updateCompanySelect();
+        });
+
+        // Listen for class renaming events
+        document.addEventListener('classRenamed', (event) => {
+            // The companies will continue to reference the same class ID
+            // Just refresh the UI to display the new name
+            this.updateClassSelect();
+            this.updateCompanySelect();
+            this.renderCompanyList();
         });
 
         // Listen for company creation events
@@ -313,15 +332,17 @@ export default class CompanyView {
 
     /**
      * Render the list of companies
-     * @param {string} className - Optional filter by class name
+     * @param {string} classFilter - Optional filter by class ID
      */
-    renderCompanyList(className = null) {
+    renderCompanyList(classFilter = null) {
         const companiesList = document.querySelector('#companies-list');
         if (!companiesList) return;
         companiesList.innerHTML = '';
 
-        className = className || document.querySelector('#company-filter-select').value;
-        const companies = this.companyManager.getCompaniesForClass(className);
+        classFilter = classFilter || document.querySelector('#company-filter-select')?.value;
+        const companies = classFilter ? 
+            this.companyManager.getCompaniesForClass(classFilter) : 
+            this.companyManager.getAllCompanies();
 
         if (companies.length === 0) {
             const emptyMessage = document.createElement('p');
@@ -337,16 +358,20 @@ export default class CompanyView {
 
             // Get student names for this company
             const students = company.memberIds.map(id => {
-                const classStudents = this.classManager.getStudents(company.classroomName);
+                // First try using class ID if available
+                let classStudents = [];
+                classStudents = this.classManager.getStudents(company.classroomId);
                 const student = classStudents.find(s => s.id === id);
                 return student ? student.name : 'Aluno não encontrado';
             });
+
+            const classroomName = this.classManager.getClassById(company.classroomId).name;
 
             const companyContent = document.createElement('div');
             companyContent.className = 'company-header';
             companyContent.innerHTML = `
                     <h4>${company.name}</h4>
-                    <p><strong>Turma:</strong> ${company.classroomName}</p>
+                    <p><strong>Turma:</strong> ${classroomName}</p>
                     <p class="company-students"><strong>Alunos:</strong> ${students.join(', ')}</p>
                     <div class="company-finances">
                         <div class="finance-item">
@@ -555,7 +580,7 @@ export default class CompanyView {
     showDistributeProfitsModal(company) {
         // Get current company members with their details
         const students = company.memberIds.map(id => {
-            const classStudents = this.classManager.getStudents(company.classroomName);
+            const classStudents = this.classManager.getStudents(company.classroomId);
             return classStudents.find(s => s.id === id);
         }).filter(student => student); // Filter out any undefined students
         
@@ -714,7 +739,7 @@ export default class CompanyView {
      */
     showEditStudentsModal(company) {
         // Get all available students from the class
-        const allClassStudents = this.classManager.getStudents(company.classroomName);
+        const allClassStudents = this.classManager.getStudents(company.classroomId);
         
         // Create two arrays: one for students in the company and one for students not in the company
         const companyStudents = allClassStudents.filter(student => 
