@@ -26,6 +26,7 @@ export default class ProductManager {
             companyId: product.companyId,
             sales: product.sales,
             total: product.total,
+            launchedAt: product.launchedAt
         }));
     }
 
@@ -204,7 +205,7 @@ export default class ProductManager {
         if (endDate) {
             end.setHours(23, 59, 59, 999);
         }
-        
+
         return products.filter(product => {
             const launchDate = new Date(product.launchedAt);
             return launchDate >= start && launchDate <= end;

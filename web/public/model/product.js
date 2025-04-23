@@ -10,14 +10,14 @@ export default class Product {
      * @param {number} price - Selling price of the product
      * @param {string} companyId - Unique identifier for the company
      */
-    constructor({id, name, price, companyId, sales, total}) {
+    constructor({id, name, price, companyId, sales, total, launchedAt}) {
         this.id = id;
         this.name = name;
         this.companyId = companyId;
         this.price = parseFloat(price) || 0;
         this.sales = parseInt(sales) || 0;
         this.total = parseFloat(total) || 0;
-        this.launchedAt = new Date().toISOString();
+        this.launchedAt = launchedAt || new Date().toISOString();
     }
 
     /**

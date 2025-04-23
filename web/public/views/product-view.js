@@ -287,12 +287,12 @@ export default class ProductView {
                 // For end date only, we get all products up to that date
                 filteredProducts = this.productManager.getProductsByDateRange(new Date(0), endDate);
             }
-            
+
             // Re-apply class filter if needed
             if (selectedClass) {
                 filteredProducts = filteredProducts.filter(product => {
                     const company = this.companyManager.getCompany(product.companyId);
-                    return company && company.classroomName === selectedClass;
+                    return company && company.classroomId === selectedClass;
                 });
             }
         }
