@@ -68,7 +68,11 @@ export default class NavigationView {
      * @param {string} sectionId - The ID of the current section
      */
     saveCurrentTab(sectionId) {
-        this.storageManager.saveData({ lastTab: sectionId });
+        const currentTab = this.storageManager.loadData() || {};
+        this.storageManager.saveData({
+            ...currentTab,
+            lastTab: sectionId
+        });
     }
     
     /**

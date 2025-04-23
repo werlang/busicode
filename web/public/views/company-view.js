@@ -6,11 +6,13 @@ import CompanyManager from '../helpers/company-manager.js';
 import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
+import Storage from '../helpers/storage.js';
 
 export default class CompanyView {
     constructor() {
         this.companyManager = new CompanyManager();
         this.classManager = new ClassManager();
+        this.navigationStorage = new Storage('busicode_navigation'); // For remembering filter
     }
 
     /**
@@ -30,10 +32,24 @@ export default class CompanyView {
         this.updateClassSelect();
         this.updateCompanySelect();
 
-        // Listen for changes on the company filter select to update company cards
+        // Listen for changes on the company filter select to update company cards and persist selection
         const companyFilterSelect = document.querySelector('#company-filter-select');
         if (companyFilterSelect) {
-            companyFilterSelect.addEventListener('change', () => this.renderCompanyList(companyFilterSelect.value));
+            // Restore filter selection from navigation storage
+            const navData = this.navigationStorage.loadData() || {};
+            if (navData.companyClassFilter) {
+                companyFilterSelect.value = navData.companyClassFilter;
+            }
+            // Always render with restored or default value
+            this.renderCompanyList(companyFilterSelect.value);
+            // Save on change
+            companyFilterSelect.addEventListener('change', () => {
+                // Save to navigation storage
+                const navData = this.navigationStorage.loadData() || {};
+                navData.companyClassFilter = companyFilterSelect.value;
+                this.navigationStorage.saveData(navData);
+                this.renderCompanyList(companyFilterSelect.value);
+            });
         }
                                                             
         // Set up global event listeners
@@ -215,6 +231,11 @@ export default class CompanyView {
             classSelect.appendChild(option);
         });
 
+        // Restore filter selection from navigation storage
+        const navData = this.navigationStorage.loadData() || {};
+        if (navData.companyClassFilter && [...classSelect.options].some(opt => opt.value === navData.companyClassFilter)) {
+            classSelect.value = navData.companyClassFilter;
+        }
         // Render list of companies
         this.renderCompanyList(classSelect.value);
     }

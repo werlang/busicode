@@ -7,12 +7,14 @@ import CompanyManager from '../helpers/company-manager.js';
 import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
+import Storage from '../helpers/storage.js';
 
 export default class ProductView {
     constructor() {
         this.productManager = new ProductManager();
         this.companyManager = new CompanyManager();
         this.classManager = new ClassManager();
+        this.navigationStorage = new Storage('busicode_navigation'); // For remembering filters
     }
 
     /**
@@ -20,11 +22,28 @@ export default class ProductView {
      */
     initialize() {
         this.setupEventListeners();
+        this.restoreProductFilters();
         this.updateClassFilter();
         this.updateCompanyDropdown();
         this.renderLaunchedProducts();
-
         return this;
+    }
+
+    restoreProductFilters() {
+        // Restore class and date filters from navigation storage
+        const navData = this.navigationStorage.loadData() || {};
+        const productFilterSelect = document.querySelector('#product-filter-select');
+        const startDateInput = document.querySelector('#product-start-date');
+        const endDateInput = document.querySelector('#product-end-date');
+        if (productFilterSelect && navData.productClassFilter) {
+            productFilterSelect.value = navData.productClassFilter;
+        }
+        if (startDateInput && navData.productStartDate) {
+            startDateInput.value = navData.productStartDate;
+        }
+        if (endDateInput && navData.productEndDate) {
+            endDateInput.value = navData.productEndDate;
+        }
     }
 
     /**
@@ -48,22 +67,36 @@ export default class ProductView {
         const productFilterSelect = document.querySelector('#product-filter-select');
         if (productFilterSelect) {
             productFilterSelect.addEventListener('change', () => {
+                // Save to navigation storage
+                const navData = this.navigationStorage.loadData() || {};
+                navData.productClassFilter = productFilterSelect.value;
+                this.navigationStorage.saveData(navData);
                 this.updateCompanyDropdown();
                 this.renderLaunchedProducts();
             });
         }
-        
         // Date filter event listeners
         const applyDateFilterBtn = document.querySelector('#apply-date-filter');
         if (applyDateFilterBtn) {
             applyDateFilterBtn.addEventListener('click', () => {
+                // Save to navigation storage
+                const navData = this.navigationStorage.loadData() || {};
+                const startDateInput = document.querySelector('#product-start-date');
+                const endDateInput = document.querySelector('#product-end-date');
+                navData.productStartDate = startDateInput ? startDateInput.value : '';
+                navData.productEndDate = endDateInput ? endDateInput.value : '';
+                this.navigationStorage.saveData(navData);
                 this.renderLaunchedProducts();
             });
         }
-        
         const clearDateFilterBtn = document.querySelector('#clear-date-filter');
         if (clearDateFilterBtn) {
             clearDateFilterBtn.addEventListener('click', () => {
+                // Clear from navigation storage
+                const navData = this.navigationStorage.loadData() || {};
+                navData.productStartDate = '';
+                navData.productEndDate = '';
+                this.navigationStorage.saveData(navData);
                 document.querySelector('#product-start-date').value = '';
                 document.querySelector('#product-end-date').value = '';
                 this.renderLaunchedProducts();
@@ -108,10 +141,8 @@ export default class ProductView {
     updateClassFilter() {
         const filterSelect = document.querySelector('#product-filter-select');
         if (!filterSelect) return;
-
         // Save current selection
         const currentSelection = filterSelect.value;
-        
         // Clear options except the default one
         while (filterSelect.options.length > 1) {
             filterSelect.options.remove(1);
@@ -138,8 +169,11 @@ export default class ProductView {
             filterSelect.appendChild(option);
         });
         
-        // Restore selection if possible
-        if (currentSelection && [...filterSelect.options].some(opt => opt.value === currentSelection)) {
+        // Restore selection if possible (prefer navigation storage)
+        const navData = this.navigationStorage.loadData() || {};
+        if (navData.productClassFilter && [...filterSelect.options].some(opt => opt.value === navData.productClassFilter)) {
+            filterSelect.value = navData.productClassFilter;
+        } else if (currentSelection && [...filterSelect.options].some(opt => opt.value === currentSelection)) {
             filterSelect.value = currentSelection;
         }
     }
