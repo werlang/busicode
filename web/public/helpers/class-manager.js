@@ -209,7 +209,7 @@ export default class ClassManager {
         
         // Generate a unique ID for the student
         const id = `student_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const student = new Student(id, studentName, initialBalance);
+        const student = new Student(id, studentName, initialBalance, initialBalance);
         
         targetClass.students.push(student);
         this.saveClasses();

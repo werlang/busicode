@@ -14,10 +14,6 @@ export default class Student {
         this.name = name;
         this.initialBalance = parseFloat(initialBalance) || 0;
         this.currentBalance = parseFloat(currentBalance) || 0;
-
-        if (this.initialBalance > 0 && this.currentBalance === 0) {
-            this.currentBalance = this.initialBalance;
-        }
     }
 
     /**
