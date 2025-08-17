@@ -20,12 +20,12 @@ export default class ProductView {
     /**
      * Initialize the ProductView
      */
-    initialize() {
+    async initialize() {
         this.setupEventListeners();
         this.restoreProductFilters();
-        this.updateClassFilter();
-        this.updateCompanyDropdown();
-        this.renderLaunchedProducts();
+        await this.updateClassFilter();
+        await this.updateCompanyDropdown();
+        await this.renderLaunchedProducts();
         return this;
     }
 
@@ -53,32 +53,32 @@ export default class ProductView {
         // Initialize launch button
         const launchProductBtn = document.querySelector('#launch-product-btn');
         if (launchProductBtn) {
-            launchProductBtn.addEventListener('click', () => this.launchProduct());
+            launchProductBtn.addEventListener('click', async () => await this.launchProduct());
         }
 
         // Listen for class selection changes
-        document.addEventListener('classSelectsUpdated', () => {
-            this.updateClassFilter();
-            this.updateCompanyDropdown();
-            this.renderLaunchedProducts();
+        document.addEventListener('classSelectsUpdated', async () => {
+            await this.updateClassFilter();
+            await this.updateCompanyDropdown();
+            await this.renderLaunchedProducts();
         });
 
         // Listen for class filter changes
         const productFilterSelect = document.querySelector('#product-filter-select');
         if (productFilterSelect) {
-            productFilterSelect.addEventListener('change', () => {
+            productFilterSelect.addEventListener('change', async () => {
                 // Save to navigation storage
                 const navData = this.navigationStorage.loadData() || {};
                 navData.productClassFilter = productFilterSelect.value;
                 this.navigationStorage.saveData(navData);
-                this.updateCompanyDropdown();
-                this.renderLaunchedProducts();
+                await this.updateCompanyDropdown();
+                await this.renderLaunchedProducts();
             });
         }
         // Date filter event listeners
         const applyDateFilterBtn = document.querySelector('#apply-date-filter');
         if (applyDateFilterBtn) {
-            applyDateFilterBtn.addEventListener('click', () => {
+            applyDateFilterBtn.addEventListener('click', async () => {
                 // Save to navigation storage
                 const navData = this.navigationStorage.loadData() || {};
                 const startDateInput = document.querySelector('#product-start-date');
@@ -86,12 +86,12 @@ export default class ProductView {
                 navData.productStartDate = startDateInput ? startDateInput.value : '';
                 navData.productEndDate = endDateInput ? endDateInput.value : '';
                 this.navigationStorage.saveData(navData);
-                this.renderLaunchedProducts();
+                await this.renderLaunchedProducts();
             });
         }
         const clearDateFilterBtn = document.querySelector('#clear-date-filter');
         if (clearDateFilterBtn) {
-            clearDateFilterBtn.addEventListener('click', () => {
+            clearDateFilterBtn.addEventListener('click', async () => {
                 // Clear from navigation storage
                 const navData = this.navigationStorage.loadData() || {};
                 navData.productStartDate = '';
@@ -99,7 +99,7 @@ export default class ProductView {
                 this.navigationStorage.saveData(navData);
                 document.querySelector('#product-start-date').value = '';
                 document.querySelector('#product-end-date').value = '';
-                this.renderLaunchedProducts();
+                await this.renderLaunchedProducts();
             });
         }
 
@@ -110,27 +110,27 @@ export default class ProductView {
         });
 
         // Listen for company deletion event
-        document.addEventListener('companyDeleted', (event) => {
+        document.addEventListener('companyDeleted', async (event) => {
             const companyId = event.detail.companyId;
-            this.productManager.removeProductsByCompany(companyId);
-            this.updateClassFilter();
-            this.updateCompanyDropdown();
-            this.renderLaunchedProducts();
+            await this.productManager.removeProductsByCompany(companyId);
+            await this.updateClassFilter();
+            await this.updateCompanyDropdown();
+            await this.renderLaunchedProducts();
         });
 
         // Listen for class deletion
-        document.addEventListener('classDeleted', (event) => {
-            this.updateClassFilter();
-            this.updateCompanyDropdown();
-            this.renderLaunchedProducts();
+        document.addEventListener('classDeleted', async (event) => {
+            await this.updateClassFilter();
+            await this.updateCompanyDropdown();
+            await this.renderLaunchedProducts();
         });
 
         // Listen for section change events
-        document.addEventListener('sectionChanged', (event) => {
+        document.addEventListener('sectionChanged', async (event) => {
             if (event.detail.sectionId === 'product-launch-section') {
-                this.updateClassFilter();
-                this.updateCompanyDropdown();
-                this.renderLaunchedProducts();
+                await this.updateClassFilter();
+                await this.updateCompanyDropdown();
+                await this.renderLaunchedProducts();
             }
         });
     }
@@ -138,7 +138,7 @@ export default class ProductView {
     /**
      * Update class filter dropdown
      */
-    updateClassFilter() {
+    async updateClassFilter() {
         const filterSelect = document.querySelector('#product-filter-select');
         if (!filterSelect) return;
         // Save current selection
@@ -149,15 +149,15 @@ export default class ProductView {
         }
         
         // Get unique class names from companies that have products
-        const products = this.productManager.getAllLaunchedProducts();
-        const companies = products.map(product => this.companyManager.getCompany(product.companyId));
-        const classes = companies.map(company => {
-            const classroom = this.classManager.getClassById(company.classroomId);
+        const products = await this.productManager.getAllLaunchedProducts();
+        const companies = await Promise.all(products.map(product => this.companyManager.getCompany(product.companyId)));
+        const classes = await Promise.all(companies.map(async company => {
+            const classroom = await this.classManager.getClassById(company.classId);
             return {
                 id: classroom.id,
                 name: classroom.name,
             }
-        });
+        }));
         const uniqueClasses = classes.filter((value, index, self) => self.map(e => e.id).indexOf(value.id) === index);
 
 
@@ -181,7 +181,7 @@ export default class ProductView {
     /**
      * Update company dropdown in the product launch section
      */
-    updateCompanyDropdown() {
+    async updateCompanyDropdown() {
         const companySelect = document.querySelector('#product-company-select');
         if (!companySelect) return;
 
@@ -198,17 +198,18 @@ export default class ProductView {
         
         // Get companies filtered by class if needed
         const companies = selectedClass 
-            ? this.companyManager.getCompaniesForClass(selectedClass)
-            : this.companyManager.getAllCompanies();
+            ? await this.companyManager.getCompaniesForClass(selectedClass)
+            : await this.companyManager.getAllCompanies();
         
         // Add filtered companies
-        companies.forEach(company => {
-            company.classroomName = this.classManager.getClassById(company.classroomId).name;
+        for (const company of companies) {
+            const classroom = await this.classManager.getClassById(company.classId);
+            company.classroomName = classroom.name;
             const option = document.createElement('option');
             option.value = company.id;
             option.textContent = `${company.name} (${company.classroomName})`;
             companySelect.appendChild(option);
-        });
+        }
         
         // Restore selection if possible
         if (currentSelection && [...companySelect.options].some(opt => opt.value === currentSelection)) {
@@ -219,7 +220,7 @@ export default class ProductView {
     /**
      * Launch a new product using form input
      */
-    launchProduct() {
+    async launchProduct() {
         const companySelect = document.querySelector('#product-company-select');
         const productNameInput = document.querySelector('#product-name');
         const productPriceInput = document.querySelector('#product-price');
@@ -229,7 +230,7 @@ export default class ProductView {
         const productPrice = parseFloat(productPriceInput.value);
         
         // Use the product manager to launch the product
-        const result = this.productManager.launchProduct(companyId, productName, productPrice);
+        const result = await this.productManager.launchProduct(companyId, productName, productPrice);
         
         if (!result.success) {
             Toast.show({ message: result.message, type: 'error' });
@@ -241,9 +242,9 @@ export default class ProductView {
         productPriceInput.value = '';
         
         // Update UI
-        this.updateCompanyDropdown();
-        this.updateClassFilter();
-        this.renderLaunchedProducts();
+        await this.updateCompanyDropdown();
+        await this.updateClassFilter();
+        await this.renderLaunchedProducts();
         
         Toast.show({ message: result.message, type: 'success' });
     }
@@ -252,8 +253,8 @@ export default class ProductView {
      * Show a modal to edit a product's price
      * @param {string} productId - ID of the product to edit
      */
-    editProductPrice(productId) {
-        const product = this.productManager.getProduct(productId);
+    async editProductPrice(productId) {
+        const product = await this.productManager.getProduct(productId);
         if (!product) return;
         
         Modal.showInput({
@@ -270,17 +271,17 @@ export default class ProductView {
             ],
             confirmText: 'Salvar',
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const newPrice = parseFloat(values.price);
                 
-                const result = this.productManager.editProductPrice(productId, newPrice);
+                const result = await this.productManager.editProductPrice(productId, newPrice);
                 
                 if (!result.success) {
                     Toast.show({ message: result.message, type: 'error' });
                     return false;
                 }
                 
-                this.renderLaunchedProducts();
+                await this.renderLaunchedProducts();
                 Toast.show({ message: result.message, type: 'success' });
                 return true;
             }
@@ -290,7 +291,7 @@ export default class ProductView {
     /**
      * Render the list of launched products
      */
-    renderLaunchedProducts() {
+    async renderLaunchedProducts() {
         const launchProductsBody = document.querySelector('#launch-products-body');
         if (!launchProductsBody) return;
         
@@ -308,26 +309,30 @@ export default class ProductView {
         
         // Get products filtered by class if needed
         let filteredProducts = selectedClass 
-            ? this.productManager.getLaunchedProductsByClassId(selectedClass)
-            : this.productManager.getAllLaunchedProducts();
+            ? await this.productManager.getLaunchedProductsByClassId(selectedClass)
+            : await this.productManager.getAllLaunchedProducts();
         
         // Apply date filtering if either date is set
         if (startDate || endDate) {
             if (startDate && endDate) {
-                filteredProducts = this.productManager.getProductsByDateRange(startDate, endDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(startDate, endDate);
             } else if (startDate) {
-                filteredProducts = this.productManager.getProductsByDateRange(startDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(startDate);
             } else if (endDate) {
                 // For end date only, we get all products up to that date
-                filteredProducts = this.productManager.getProductsByDateRange(new Date(0), endDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(new Date(0), endDate);
             }
 
             // Re-apply class filter if needed
             if (selectedClass) {
-                filteredProducts = filteredProducts.filter(product => {
-                    const company = this.companyManager.getCompany(product.companyId);
-                    return company && company.classroomId === selectedClass;
-                });
+                const filteredByClass = [];
+                for (const product of filteredProducts) {
+                    const company = await this.companyManager.getCompany(product.companyId);
+                    if (company && company.classId === selectedClass) {
+                        filteredByClass.push(product);
+                    }
+                }
+                filteredProducts = filteredByClass;
             }
         }
         
@@ -399,11 +404,11 @@ export default class ProductView {
             addSalesBtn.textContent = '+';
             addSalesBtn.className = 'add-sales-btn';
             addSalesBtn.title = 'Adicionar vendas';
-            addSalesBtn.addEventListener('click', () => {
+            addSalesBtn.addEventListener('click', async () => {
                 const newSalesValue = parseInt(newSalesInput.value) || 0;
                 
                 // Use the product manager to add sales
-                const result = this.productManager.addProductSales(product.id, newSalesValue);
+                const result = await this.productManager.addProductSales(product.id, newSalesValue);
                 
                 if (!result.success) {
                     Toast.show({ message: result.message, type: 'warning' });
@@ -441,14 +446,14 @@ export default class ProductView {
             const editPriceBtn = document.createElement('button');
             editPriceBtn.textContent = 'Editar Preço';
             editPriceBtn.className = 'edit-product-btn';
-            editPriceBtn.addEventListener('click', () => this.editProductPrice(product.id));
+            editPriceBtn.addEventListener('click', async () => await this.editProductPrice(product.id));
             actionsCell.appendChild(editPriceBtn);
             
             // Remove button
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remover';
             removeBtn.className = 'remove-btn';
-            removeBtn.addEventListener('click', () => this.showRemoveProductModal(product.id));
+            removeBtn.addEventListener('click', async () => await this.showRemoveProductModal(product.id));
             actionsCell.appendChild(removeBtn);
             
             // Add cells to row
@@ -468,11 +473,11 @@ export default class ProductView {
      * Show confirmation modal for removing a product
      * @param {string} productId - ID of the product to remove
      */
-    showRemoveProductModal(productId) {
-        const product = this.productManager.getProduct(productId);
+    async showRemoveProductModal(productId) {
+        const product = await this.productManager.getProduct(productId);
         if (!product) return;
         
-        const company = this.companyManager.getCompany(product.companyId);
+        const company = await this.companyManager.getCompany(product.companyId);
         let shownName = product.name.length ? `"${product.name}"` : `da empresa "${company.name}"`;
         
         // Show confirmation modal
@@ -482,13 +487,13 @@ export default class ProductView {
             confirmText: 'Remover',
             cancelText: 'Cancelar',
             type: 'warning',
-            onConfirm: () => {
-                const result = this.productManager.removeProduct(productId);
+            onConfirm: async () => {
+                const result = await this.productManager.removeProduct(productId);
                 
                 if (result.success) {
-                    this.updateCompanyDropdown();
-                    this.updateClassFilter();
-                    this.renderLaunchedProducts();
+                    await this.updateCompanyDropdown();
+                    await this.updateClassFilter();
+                    await this.renderLaunchedProducts();
                     Toast.show({ message: result.message, type: 'success' });
                 } else {
                     Toast.show({ message: result.message, type: 'error' });

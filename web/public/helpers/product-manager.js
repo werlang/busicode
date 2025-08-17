@@ -2,48 +2,46 @@
  * Product Manager
  * Handles data operations for products in the BusiCode application
  */
-import Storage from './storage.js';
+import Request from './request.js';
 import CompanyManager from './company-manager.js';
 import Product from '../model/product.js';
 
 export default class ProductManager {
     constructor() {
-        this.storage = new Storage('busicode_product_launches');
-        this.launchedProducts = this.loadLaunchedProducts() || [];
+        this.request = new Request({
+            url: 'http://localhost:3000',
+        });
         this.companyManager = new CompanyManager();
     }
 
     /**
-     * Load launched products from storage
-     * @returns {Array} An array of launched products
+     * Convert API response to Product model
+     * @private
      */
-    loadLaunchedProducts() {
-        const data = this.storage.loadData() || [];
-        return data.map(product => new Product({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            companyId: product.companyId,
-            sales: product.sales,
-            total: product.total,
-            launchedAt: product.launchedAt
-        }));
-    }
-
-    /**
-     * Save launched products to storage
-     */
-    saveLaunchedProducts() {
-        this.storage.saveData(this.launchedProducts);
+    _convertToProductModel(productData) {
+        return new Product({
+            id: productData.id,
+            name: productData.name,
+            price: productData.price,
+            companyId: productData.companyId,
+            sales: productData.sales || 0,
+            total: productData.total || 0,
+            launchedAt: productData.launchedAt
+        });
     }
 
     /**
      * Get all launched products
      * @returns {Array} An array of launched products
      */
-    getAllLaunchedProducts() {
-        this.launchedProducts = this.loadLaunchedProducts();
-        return this.launchedProducts;
+    async getAllLaunchedProducts() {
+        try {
+            const {products} = await this.request.get('products');
+            return products.map(product => this._convertToProductModel(product));
+        } catch (error) {
+            console.error('Error getting all launched products:', error);
+            return [];
+        }
     }
 
     /**
@@ -51,12 +49,14 @@ export default class ProductManager {
      * @param {string} classId - Class ID to filter products by
      * @returns {Array} Filtered array of launched products
      */
-    getLaunchedProductsByClassId(classId) {
-        return this.getAllLaunchedProducts().filter(product => {
-            const company = this.companyManager.getCompany(product.companyId);
-            const classroom = this.companyManager.classManager.getClassById(company.classroomId);
-            return classroom && classroom.id === classId;
-        });
+    async getLaunchedProductsByClassId(classId) {
+        try {
+            const products = await this.request.get(`products?class_id=${classId}`);
+            return products.map(product => this._convertToProductModel(product));
+        } catch (error) {
+            console.error('Error getting products by class ID:', error);
+            return [];
+        }
     }
 
     /**
@@ -66,43 +66,26 @@ export default class ProductManager {
      * @param {number} productPrice - Price of the product
      * @returns {Object} Result object with product and status information
      */
-    launchProduct(companyId, productName, productPrice) {
-        // Validate inputs
-        if (!companyId) {
-            return { success: false, message: 'Por favor, selecione uma empresa.' };
+    async launchProduct(companyId, productName, productPrice) {
+        try {
+            const response = await this.request.post('products', {
+                company_id: companyId,
+                name: productName,
+                price: productPrice
+            });
+            
+            return { 
+                success: true, 
+                message: response.message,
+                product: this._convertToProductModel(response.product),
+                company: response.company
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao lançar produto'
+            };
         }
-
-        if (!productName || productName.trim() === '') {
-            return { success: false, message: 'Por favor, insira um nome para o produto.' };
-        }
-        
-        if (isNaN(productPrice) || productPrice <= 0) {
-            return { success: false, message: 'Por favor, insira um valor válido para o produto.' };
-        }
-        
-        // Get company
-        const company = this.companyManager.getCompany(companyId);
-        if (!company) {
-            return { success: false, message: 'Empresa não encontrada.' };
-        }
-        
-        // Add product to launched products list
-        const launchedProduct = new Product({
-            id: `launch_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-            name: productName,
-            price: productPrice,
-            companyId,
-        });
-
-        this.launchedProducts.push(launchedProduct);
-        this.saveLaunchedProducts();
-        
-        return { 
-            success: true, 
-            message: `Produto "${productName}" lançado com sucesso para a empresa "${company.name}"!`,
-            product: launchedProduct,
-            company
-        };
     }
 
     /**
@@ -111,24 +94,23 @@ export default class ProductManager {
      * @param {number} newPrice - New price for the product
      * @returns {Object} Result object with product and status information
      */
-    editProductPrice(productId, newPrice) {
-        const product = this.launchedProducts.find(p => p.id === productId);
-        if (!product) {
-            return { success: false, message: 'Produto não encontrado.' };
+    async editProductPrice(productId, newPrice) {
+        try {
+            const response = await this.request.put(`products/${productId}`, {
+                price: newPrice
+            });
+            
+            return {
+                success: true,
+                message: response.message,
+                product: this._convertToProductModel(response.product)
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao atualizar preço do produto'
+            };
         }
-        
-        if (isNaN(newPrice) || newPrice <= 0) {
-            return { success: false, message: 'Por favor, insira um valor válido para o produto.' };
-        }
-        
-        product.updatePrice(newPrice);
-        this.saveLaunchedProducts();
-        
-        return {
-            success: true,
-            message: `Preço do produto "${product.name}" atualizado para R$ ${newPrice.toFixed(2)}!`,
-            product
-        };
     }
 
     /**
@@ -137,28 +119,26 @@ export default class ProductManager {
      * @param {number} salesCount - Number of sales to add
      * @returns {Object} Result object with product and sales information
      */
-    addProductSales(productId, salesCount) {
-        const product = this.launchedProducts.find(p => p.id === productId);
-        if (!product) {
-            return { success: false, message: 'Produto não encontrado.' };
+    async addProductSales(productId, salesCount) {
+        try {
+            const response = await this.request.post(`products/${productId}/sales`, {
+                sales_count: salesCount
+            });
+            
+            return {
+                success: true,
+                message: response.message,
+                product: this._convertToProductModel(response.product),
+                salesCount,
+                price: response.product.price,
+                companyId: response.product.company_id
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao adicionar vendas'
+            };
         }
-        
-        if (isNaN(salesCount) || salesCount <= 0) {
-            return { success: false, message: 'Insira um valor válido para as vendas.' };
-        }
-        
-        product.addSales(salesCount);
-        this.saveLaunchedProducts();
-        
-        // Return the result and product information
-        return {
-            success: true,
-            message: `${salesCount} vendas adicionadas ao produto "${product.name}"!`,
-            product,
-            salesCount,
-            price: product.price,
-            companyId: product.companyId
-        };
     }
 
     /**
@@ -166,26 +146,22 @@ export default class ProductManager {
      * @param {string} productId - ID of the product to remove
      * @returns {Object} Result object with removed product information
      */
-    removeProduct(productId) {
-        const index = this.launchedProducts.findIndex(p => p.id === productId);
-        if (index === -1) {
-            return { success: false, message: 'Produto não encontrado.' };
+    async removeProduct(productId) {
+        try {
+            const response = await this.request.delete(`products/${productId}`);
+            
+            return {
+                success: true,
+                message: response.message,
+                product: response.product,
+                company: response.company
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao remover produto'
+            };
         }
-        
-        const product = this.launchedProducts[index];
-        const company = this.companyManager.getCompany(product.companyId);
-        
-        this.launchedProducts.splice(index, 1);
-        this.saveLaunchedProducts();
-        
-        let shownName = product.name.length ? `"${product.name}"` : `da empresa "${company.name}"`;
-        
-        return {
-            success: true,
-            message: `Produto ${shownName} removido do lançamento com sucesso!`,
-            product,
-            company
-        };
     }
 
     /**
@@ -194,22 +170,23 @@ export default class ProductManager {
      * @param {Date|string} endDate - End date for filtering (optional)
      * @returns {Array} Filtered array of products
      */
-    getProductsByDateRange(startDate, endDate = null) {
-        const products = this.getAllLaunchedProducts();
-        
-        // Convert string dates to Date objects if needed
-        const start = startDate instanceof Date ? startDate : new Date(startDate);
-        const end = endDate ? (endDate instanceof Date ? endDate : new Date(endDate)) : new Date();
-        
-        // Set end date to end of day if provided
-        if (endDate) {
-            end.setHours(23, 59, 59, 999);
+    async getProductsByDateRange(startDate, endDate = null) {
+        try {
+            let url = 'products?';
+            const start = startDate instanceof Date ? startDate.toISOString() : new Date(startDate).toISOString();
+            url += `start_date=${start}`;
+            
+            if (endDate) {
+                const end = endDate instanceof Date ? endDate.toISOString() : new Date(endDate).toISOString();
+                url += `&end_date=${end}`;
+            }
+            
+            const products = await this.request.get(url);
+            return products.map(product => this._convertToProductModel(product));
+        } catch (error) {
+            console.error('Error getting products by date range:', error);
+            return [];
         }
-
-        return products.filter(product => {
-            const launchDate = new Date(product.launchedAt);
-            return launchDate >= start && launchDate <= end;
-        });
     }
 
     /**
@@ -217,7 +194,7 @@ export default class ProductManager {
      * @param {Date|string} date - The date to filter by
      * @returns {Array} Filtered array of products
      */
-    getProductsByDate(date) {
+    async getProductsByDate(date) {
         const targetDate = date instanceof Date ? date : new Date(date);
         
         // Set to start of day
@@ -228,7 +205,7 @@ export default class ProductManager {
         const endDate = new Date(targetDate);
         endDate.setHours(23, 59, 59, 999);
         
-        return this.getProductsByDateRange(startDate, endDate);
+        return await this.getProductsByDateRange(startDate, endDate);
     }
 
     /**
@@ -236,8 +213,17 @@ export default class ProductManager {
      * @param {string} productId - ID of the product
      * @returns {Product|null} The product object or null if not found
      */
-    getProduct(productId) {
-        return this.launchedProducts.find(p => p.id === productId) || null;
+    async getProduct(productId) {
+        try {
+            const productData = await this.request.get(`products/${productId}`);
+            return this._convertToProductModel(productData);
+        } catch (error) {
+            if (error.status === 404) {
+                return null;
+            }
+            console.error('Error getting product:', error);
+            return null;
+        }
     }
 
     /**
@@ -245,14 +231,13 @@ export default class ProductManager {
      * @param {string} companyId - ID of the company
      * @returns {number} Number of products removed
      */
-    removeProductsByCompany(companyId) {
-        const initialCount = this.launchedProducts.length;
-        this.launchedProducts = this.launchedProducts.filter(product => product.companyId !== companyId);
-        
-        if (this.launchedProducts.length !== initialCount) {
-            this.saveLaunchedProducts();
+    async removeProductsByCompany(companyId) {
+        try {
+            const response = await this.request.delete(`products/company/${companyId}`);
+            return response.deletedCount || 0;
+        } catch (error) {
+            console.error('Error removing products by company:', error);
+            return 0;
         }
-        
-        return initialCount - this.launchedProducts.length;
     }
 }

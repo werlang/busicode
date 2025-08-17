@@ -7,6 +7,7 @@ import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 import Storage from '../helpers/storage.js';
+import Company from '../model/company.js';
 
 export default class CompanyView {
     constructor() {
@@ -19,9 +20,9 @@ export default class CompanyView {
      * Initialize the CompanyView
      * Set up UI event handlers and render initial content
      */
-    initialize() {
+    async initialize() {
         const createCompanyBtn = document.querySelector('#create-company-btn');
-        createCompanyBtn.addEventListener('click', () => this.createCompany());
+        createCompanyBtn.addEventListener('click', async () => await this.createCompany());
         
         const companyClassSelect = document.querySelector('#company-class-select');
         companyClassSelect.addEventListener('change', () => this.updateStudentSelect());
@@ -29,8 +30,8 @@ export default class CompanyView {
         const companyStudentsSelect = document.querySelector('#company-students');
         companyStudentsSelect.addEventListener('change', () => this.updateStudentContributions());
 
-        this.updateClassSelect();
-        this.updateCompanySelect();
+        await this.updateClassSelect();
+        await this.updateCompanySelect();
 
         // Listen for changes on the company filter select to update company cards and persist selection
         const companyFilterSelect = document.querySelector('#company-filter-select');
@@ -61,7 +62,7 @@ export default class CompanyView {
     /**
      * Create a new company from UI input
      */
-    createCompany() {
+    async createCompany() {
         const classSelect = document.querySelector('#company-class-select');
         const classId = classSelect.value;
         const companyNameInput = document.querySelector('#company-name');
@@ -100,7 +101,7 @@ export default class CompanyView {
         });
         
         // Create the company using the CompanyManager
-        const result = this.companyManager.createCompany(
+        const result = await this.companyManager.createCompany(
             companyName, 
             classId, 
             selectedStudentIds, 
@@ -148,8 +149,8 @@ export default class CompanyView {
     /**
      * Update class select dropdown for company creation
      */
-    updateClassSelect() {
-        const classes = this.classManager.getAllClasses();
+    async updateClassSelect() {
+        const classes = await this.classManager.getAllClasses();
         
         // Store the current selection
         const companyClassSelect = document.querySelector('#company-class-select');
@@ -210,9 +211,9 @@ export default class CompanyView {
     /**
      * Update company select dropdown for company selection
      */
-    updateCompanySelect() {
+    async updateCompanySelect() {
         const classSelect = document.querySelector('#company-filter-select');
-        const classes = this.companyManager.getUniqueClasses();
+        const classes = await this.companyManager.getUniqueClasses();
 
         // Clear options
         classSelect.innerHTML = '';
@@ -355,15 +356,15 @@ export default class CompanyView {
      * Render the list of companies
      * @param {string} classFilter - Optional filter by class ID
      */
-    renderCompanyList(classFilter = null) {
+    async renderCompanyList(classFilter = null) {
         const companiesList = document.querySelector('#companies-list');
         if (!companiesList) return;
         companiesList.innerHTML = '';
 
         classFilter = classFilter || document.querySelector('#company-filter-select')?.value;
         const companies = classFilter ? 
-            this.companyManager.getCompaniesForClass(classFilter) : 
-            this.companyManager.getAllCompanies();
+            await this.companyManager.getCompaniesForClass(classFilter) : 
+            await this.companyManager.getAllCompanies();
 
         if (companies.length === 0) {
             const emptyMessage = document.createElement('p');
@@ -373,20 +374,23 @@ export default class CompanyView {
             return;
         }
 
-        companies.forEach(company => {
+        companies.forEach(async company => {
+            const companyMembers = await this.companyManager.getCompanyMembers(company.id);
             const companyCard = document.createElement('div');
             companyCard.className = 'card company-card';
 
             // Get student names for this company
-            const students = company.memberIds.map(id => {
+            const students = await Promise.all(companyMembers.map(async member => {
                 // First try using class ID if available
                 let classStudents = [];
-                classStudents = this.classManager.getStudents(company.classroomId);
-                const student = classStudents.find(s => s.id === id);
+                classStudents = await this.classManager.getStudents(company.classId);
+                const student = classStudents.find(s => s.id === member.id);
                 return student ? student.name : 'Aluno não encontrado';
-            });
+            }));
 
-            const classroomName = this.classManager.getClassById(company.classroomId).name;
+            const classroomName = this.classManager.getClassById(company.classId).name;
+
+            const companyInstance = new Company(company);
 
             const companyContent = document.createElement('div');
             companyContent.className = 'company-header';
@@ -397,15 +401,15 @@ export default class CompanyView {
                     <div class="company-finances">
                         <div class="finance-item">
                             <div>Receitas</div>
-                            <div class="finance-value budget">R$ ${company.getTotalRevenues().toFixed(2)}</div>
+                            <div class="finance-value budget">R$ ${(companyInstance.getTotalRevenues()).toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
                             <div>Despesas</div>
-                            <div class="finance-value expenses">R$ ${company.getTotalExpenses().toFixed(2)}</div>
+                            <div class="finance-value expenses">R$ ${(companyInstance.getTotalExpenses()).toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
                             <div>Caixa</div>
-                            <div class="finance-value profit">R$ ${company.getProfit().toFixed(2)}</div>
+                            <div class="finance-value profit">R$ ${(companyInstance.getProfit()).toFixed(2)}</div>
                         </div>
                     </div>
                 `;
@@ -413,7 +417,7 @@ export default class CompanyView {
             companyCard.appendChild(companyContent);
 
             // Add activity history
-            const activityHistory = company.getActivityHistory();
+            const activityHistory = companyInstance.getActivityHistory();
             if (activityHistory.length > 0) {
                 const historyContainer = document.createElement('div');
                 historyContainer.className = 'activity-history-container';
@@ -491,7 +495,7 @@ export default class CompanyView {
             profitDistBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
             
             // Only enable the button if there are profits to distribute
-            if (company.getProfit() <= 0) {
+            if (companyInstance.getProfit() <= 0) {
                 profitDistBtn.disabled = true;
                 profitDistBtn.title = 'Não há lucros disponíveis para distribuir';
             }
@@ -601,7 +605,7 @@ export default class CompanyView {
     showDistributeProfitsModal(company) {
         // Get current company members with their details
         const students = company.memberIds.map(id => {
-            const classStudents = this.classManager.getStudents(company.classroomId);
+            const classStudents = this.classManager.getStudents(company.classId);
             return classStudents.find(s => s.id === id);
         }).filter(student => student); // Filter out any undefined students
         
@@ -760,7 +764,7 @@ export default class CompanyView {
      */
     showEditStudentsModal(company) {
         // Get all available students from the class
-        const allClassStudents = this.classManager.getStudents(company.classroomId);
+        const allClassStudents = this.classManager.getStudents(company.classId);
         
         // Create two arrays: one for students in the company and one for students not in the company
         const companyStudents = allClassStudents.filter(student => 

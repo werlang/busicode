@@ -1,6 +1,6 @@
 /**
  * Class View
- * Handles UI rendering for classes and students in the BusiCode application
+ * Handles UI rendering for classes and their students
  */
 import ClassManager from '../helpers/class-manager.js';
 import Toast from '../components/toast.js';
@@ -14,14 +14,14 @@ export default class ClassView {
     /**
      * Initialize the UI components
      */
-    initialize() {
-        this.renderClassList();
-        document.querySelector('#create-class-btn').addEventListener('click', () => this.createClass());
-        document.querySelector('#import-students-btn').addEventListener('click', () => this.importStudents());
-        document.querySelector('#add-student-btn')?.addEventListener('click', () => this.showAddStudentModal());
-        document.querySelector('#class-bulk-action-btn')?.addEventListener('click', () => this.showClassBulkActionModal());
+    async initialize() {
+        await this.renderClassList();
+        document.querySelector('#create-class-btn').addEventListener('click', async () => await this.createClass());
+        document.querySelector('#import-students-btn').addEventListener('click', async () => await this.importStudents());
+        document.querySelector('#add-student-btn')?.addEventListener('click', async () => await this.showAddStudentModal());
+        document.querySelector('#class-bulk-action-btn')?.addEventListener('click', async () => await this.showClassBulkActionModal());
 
-        document.addEventListener('studentBalanceUpdated', () => this.renderClassList());
+        document.addEventListener('studentBalanceUpdated', async () => await this.renderClassList());
 
         return this;
     }
@@ -29,7 +29,7 @@ export default class ClassView {
     /**
      * Create a new class
      */
-    createClass() {
+    async createClass() {
         const classNameInput = document.querySelector('#class-name');
         const className = classNameInput.value.trim();
 
@@ -38,13 +38,13 @@ export default class ClassView {
             return;
         }
 
-        const result = this.classManager.createClass(className);
+        const result = await this.classManager.createClass(className);
         
         if (result) {
             Toast.show({ message: `Turma "${className}" criada com sucesso!`, type: 'success' });
             classNameInput.value = '';
             document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
-            this.renderClassList();
+            await this.renderClassList();
         } else {
             Toast.show({ message: `A turma "${className}" já existe.`, type: 'warning' });
         }
@@ -53,11 +53,11 @@ export default class ClassView {
     /**
      * Render the list of classes and their students
      */
-    renderClassList() {
+    async renderClassList() {
         const classesList = document.querySelector('#classes-list');
         classesList.innerHTML = '';
         
-        const classes = this.classManager.getAllClasses();
+        const classes = await this.classManager.getAllClasses();
         
         if (classes.length === 0) {
             const emptyMessage = document.createElement('p');
@@ -113,13 +113,13 @@ export default class ClassView {
             const bulkActionBtn = document.createElement('button');
             bulkActionBtn.textContent = 'Ações em Massa';
             bulkActionBtn.className = 'bulk-action-button';
-            bulkActionBtn.addEventListener('click', () => this.showClassBulkActionModal(classId));
+            bulkActionBtn.addEventListener('click', async () => await this.showClassBulkActionModal(classId));
             
             // Add student button
             const addStudentBtn = document.createElement('button');
             addStudentBtn.textContent = 'Adicionar Aluno';
             addStudentBtn.className = 'add-student-button';
-            addStudentBtn.addEventListener('click', () => this.showAddStudentModal(classId));
+            addStudentBtn.addEventListener('click', async () => await this.showAddStudentModal(classId));
             
             classActions.appendChild(bulkActionBtn);
             classActions.appendChild(addStudentBtn);
@@ -158,9 +158,9 @@ export default class ClassView {
                 addBalanceBtn.innerHTML = '+';
                 addBalanceBtn.className = 'balance-action-button add-balance';
                 addBalanceBtn.title = 'Adicionar Saldo';
-                addBalanceBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.showBalanceActionModal(classId, student.id, 'add');
+                addBalanceBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await this.showBalanceActionModal(classId, student.id, 'add');
                 });
                 
                 // Remove balance button
@@ -168,9 +168,9 @@ export default class ClassView {
                 removeBalanceBtn.innerHTML = '-';
                 removeBalanceBtn.className = 'balance-action-button remove-balance';
                 removeBalanceBtn.title = 'Remover Saldo';
-                removeBalanceBtn.addEventListener('click', (e) => {
+                removeBalanceBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    this.showBalanceActionModal(classId, student.id, 'remove');
+                    await this.showBalanceActionModal(classId, student.id, 'remove');
                 });
                 
                 // Remove student button
@@ -178,9 +178,9 @@ export default class ClassView {
                 removeStudentBtn.innerHTML = '×';
                 removeStudentBtn.className = 'balance-action-button remove-student';
                 removeStudentBtn.title = 'Remover Aluno';
-                removeStudentBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.showRemoveStudentModal(classId, student.id, student.name);
+                removeStudentBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await this.showRemoveStudentModal(classId, student.id, student.name);
                 });
                 
                 // Add buttons to actions
@@ -206,9 +206,9 @@ export default class ClassView {
                     confirmText: 'Excluir',
                     cancelText: 'Cancelar',
                     type: 'danger',
-                    onConfirm: () => {
-                        this.classManager.deleteClass(classId);
-                        this.renderClassList();
+                    onConfirm: async () => {
+                        await this.classManager.deleteClass(classId);
+                        await this.renderClassList();
                         document.dispatchEvent(new CustomEvent('classDeleted', { detail: { classId, className } }));
                         Toast.show({ message: `Turma "${className}" excluída com sucesso.`, type: 'success' });
                     }
@@ -264,9 +264,9 @@ export default class ClassView {
         inputField.select();
         
         // Handle save button click
-        saveButton.addEventListener('click', () => {
+        saveButton.addEventListener('click', async () => {
             const newName = inputField.value.trim();
-            this.saveClassRename(classId, currentName, newName, container);
+            await this.saveClassRename(classId, currentName, newName, container);
         });
         
         // Handle cancel button click
@@ -275,10 +275,10 @@ export default class ClassView {
         });
         
         // Handle Enter key press
-        inputField.addEventListener('keydown', (e) => {
+        inputField.addEventListener('keydown', async (e) => {
             if (e.key === 'Enter') {
                 const newName = inputField.value.trim();
-                this.saveClassRename(classId, currentName, newName, container);
+                await this.saveClassRename(classId, currentName, newName, container);
             } else if (e.key === 'Escape') {
                 this.cancelClassRename(container, currentName);
             }
@@ -292,7 +292,7 @@ export default class ClassView {
      * @param {string} newName - The new name for the class
      * @param {HTMLElement} container - The container element with the rename UI
      */
-    saveClassRename(classId, oldName, newName, container) {
+    async saveClassRename(classId, oldName, newName, container) {
         if (!newName) {
             Toast.show({ message: 'O nome da turma não pode estar vazio.', type: 'error' });
             return;
@@ -304,12 +304,12 @@ export default class ClassView {
             return;
         }
         
-        const success = this.classManager.renameClass(classId, newName);
+        const success = await this.classManager.renameClass(classId, newName);
         
         if (success) {
             // Update the UI
             Toast.show({ message: `Turma renomeada de "${oldName}" para "${newName}".`, type: 'success' });
-            this.renderClassList();
+            await this.renderClassList();
             document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
         } else {
             Toast.show({ message: `Já existe uma turma com o nome "${newName}".`, type: 'error' });
@@ -349,7 +349,7 @@ export default class ClassView {
     /**
      * Import students from CSV input
      */
-    importStudents() {
+    async importStudents() {
         const classSelect = document.querySelector('#class-select');
         const studentCsvInput = document.querySelector('#student-csv');
         const studentInitialBalanceInput = document.querySelector('#student-initial-balance');
@@ -368,15 +368,16 @@ export default class ClassView {
             return;
         }
         
-        const classObj = this.classManager.getClassById(classId);
+        const classObj = await this.classManager.getClassById(classId);
         const className = classObj ? classObj.name : classId;
         
-        const addedCount = this.classManager.addStudentsFromCSV(classId, csvString, initialBalance);
+        const addedCount = await this.classManager.addStudentsFromCSV(classId, csvString, initialBalance);
         
         if (addedCount > 0) {
-            Toast.show({ message: `${addedCount} alunos adicionados à turma "${className}" com saldo inicial de R$ ${initialBalance.toFixed(2)}.`, type: 'success' });
+            Toast.show({ message: `${addedCount} aluno(s) adicionado(s) à turma "${className}".`, type: 'success' });
             studentCsvInput.value = '';
-            this.renderClassList();
+            studentInitialBalanceInput.value = '';
+            await this.renderClassList();
         } else {
             Toast.show({ message: 'Nenhum aluno foi adicionado. Verifique o formato da entrada.', type: 'error' });
         }
@@ -386,8 +387,8 @@ export default class ClassView {
      * Show a modal for adding a new student to a class
      * @param {string} classId - The ID of the class to add student to
      */
-    showAddStudentModal(classId) {
-        const classObj = this.classManager.getClassById(classId);
+    async showAddStudentModal(classId) {
+        const classObj = await this.classManager.getClassById(classId);
         if (!classObj) return;
         
         const className = classObj.name;
@@ -413,7 +414,7 @@ export default class ClassView {
             ],
             confirmText: 'Adicionar',
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const studentName = values.studentName.trim();
                 const initialBalance = parseFloat(values.initialBalance) || 0;
                 
@@ -422,9 +423,9 @@ export default class ClassView {
                     return false;
                 }
                 
-                this.classManager.addStudent(classId, studentName, initialBalance);
+                await this.classManager.addStudent(classId, studentName, initialBalance);
                 Toast.show({ message: `Aluno "${studentName}" adicionado à turma "${className}" com saldo inicial de R$ ${initialBalance.toFixed(2)}.`, type: 'success' });
-                this.renderClassList();
+                await this.renderClassList();
                 
                 return true;
             }
@@ -437,12 +438,12 @@ export default class ClassView {
      * @param {string} studentId - The ID of the student
      * @param {string} action - Either 'add' or 'remove'
      */
-    showBalanceActionModal(classId, studentId, action) {
-        const students = this.classManager.getStudents(classId);
+    async showBalanceActionModal(classId, studentId, action) {
+        const students = await this.classManager.getStudents(classId);
         const student = students.find(s => s.id === studentId);
         if (!student) return;
         
-        const classObj = this.classManager.getClassById(classId);
+        const classObj = await this.classManager.getClassById(classId);
         const className = classObj ? classObj.name : classId;
         
         const isAdding = action === 'add';
@@ -463,7 +464,7 @@ export default class ClassView {
             ],
             confirmText: actionText,
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const amount = parseFloat(values.amount);
                 
                 if (isNaN(amount) || amount <= 0) {
@@ -476,10 +477,10 @@ export default class ClassView {
                     return false;
                 }
                 
-                const success = this.classManager.modifyStudentBalance(classId, studentId, amount, action);
+                const success = await this.classManager.modifyStudentBalance(classId, studentId, amount, action);
                 
                 if (success) {
-                    this.renderClassList();
+                    await this.renderClassList();
                     
                     const message = isAdding 
                         ? `Saldo de R$ ${amount.toFixed(2)} adicionado ao aluno "${student.name}".`
@@ -509,8 +510,8 @@ export default class ClassView {
      * @param {string} studentId - The ID of the student to remove
      * @param {string} studentName - The name of the student
      */
-    showRemoveStudentModal(classId, studentId, studentName) {
-        const classObj = this.classManager.getClassById(classId);
+    async showRemoveStudentModal(classId, studentId, studentName) {
+        const classObj = await this.classManager.getClassById(classId);
         const className = classObj ? classObj.name : classId;
         
         Modal.show({
@@ -519,11 +520,11 @@ export default class ClassView {
             confirmText: 'Remover',
             cancelText: 'Cancelar',
             type: 'danger',
-            onConfirm: () => {
-                const removed = this.classManager.removeStudent(classId, studentId);
+            onConfirm: async () => {
+                const removed = await this.classManager.removeStudent(classId, studentId);
                 if (removed) {
                     Toast.show({ message: `Aluno "${studentName}" removido da turma "${className}".`, type: 'success' });
-                    this.renderClassList();
+                    await this.renderClassList();
                 } else {
                     Toast.show({ message: 'Não foi possível remover o aluno.', type: 'error' });
                 }
@@ -535,14 +536,14 @@ export default class ClassView {
      * Show modal for bulk actions on a class
      * @param {string} classId - The ID of the class
      */
-    showClassBulkActionModal(classId) {
-        const students = this.classManager.getStudents(classId);
+    async showClassBulkActionModal(classId) {
+        const students = await this.classManager.getStudents(classId);
         if (!students || students.length === 0) {
             Toast.show({ message: 'Esta turma não possui alunos.', type: 'warning' });
             return;
         }
         
-        const classObj = this.classManager.getClassById(classId);
+        const classObj = await this.classManager.getClassById(classId);
         const className = classObj ? classObj.name : classId;
         
         Modal.showInput({
@@ -568,7 +569,7 @@ export default class ClassView {
             ],
             confirmText: 'Aplicar',
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const action = values.action;
                 const amount = parseFloat(values.amount);
                 
@@ -577,7 +578,7 @@ export default class ClassView {
                     return false;
                 }
                 
-                const result = this.classManager.applyBulkAction(classId, action, amount);
+                const result = await this.classManager.applyBulkAction(classId, action, amount);
                 const { successCount, failCount, studentIds } = result;
                 
                 const isAdding = action === 'add';
@@ -601,7 +602,7 @@ export default class ClassView {
                     Toast.show({ message: failMessage, type: 'warning' });
                 }
                 
-                this.renderClassList();
+                await this.renderClassList();
                 return true;
             }
         });
@@ -610,8 +611,8 @@ export default class ClassView {
     /**
      * Update class select dropdowns
      */
-    updateClassSelects() {
-        const classes = this.classManager.getAllClasses();
+    async updateClassSelects() {
+        const classes = await this.classManager.getAllClasses();
         
         // Update class select
         // Store the current selection

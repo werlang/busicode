@@ -4,11 +4,11 @@
  */
 
 export default class Company {
-    constructor(id, name, classroomId, memberContributions, memberIds) {
+    constructor(id, name, classId, memberContributions, memberIds) {
         this.id = id;
         this.name = name;
-        this.classroomId = classroomId;
-        
+        this.classId = classId;
+
         // Armazena as contribuições individuais de cada membro
         this.memberContributions = memberContributions || {};
         
@@ -17,6 +17,7 @@ export default class Company {
             .reduce((total, contribution) => total + (parseFloat(contribution) || 0), 0);
         
         this.currentBudget = this.initialBudget;
+        
         this.memberIds = memberIds || [];
         this.expenses = [];
         this.revenues = [];

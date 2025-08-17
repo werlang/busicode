@@ -2,38 +2,14 @@
  * Class Manager
  * Handles data operations for classes and students in the BusiCode application
  */
-import Storage from './storage.js';
+import Request from './request.js';
 import Student from '../model/student.js';
 
 export default class ClassManager {
     constructor() {
-        this.storage = new Storage('busicode_classes');
-        this.classes = this.loadClasses();
-    }
-
-    /**
-     * Load classes from storage
-     * @returns {Object} An object containing all classes and their students
-     */
-    loadClasses() {
-        const classData = this.storage.loadData() || {};
-        // Convert plain objects to Student instances
-        for (const classKey in classData) {
-            classData[classKey].students = classData[classKey].students.map(student => new Student(
-                student.id,
-                student.name,
-                student.initialBalance,
-                student.currentBalance
-            ));
-        }
-        return classData;
-    }
-
-    /**
-     * Save classes to storage
-     */
-    saveClasses() {
-        this.storage.saveData(this.classes);
+        this.request = new Request({
+            url: 'http://localhost:3000',
+        });
     }
 
     /**
@@ -41,21 +17,16 @@ export default class ClassManager {
      * @param {string} className - The name of the class to create
      * @returns {Object|boolean} Class object if successful, false if class already exists
      */
-    createClass(className) {
-        // Check if className already exists in any class
-        const classExists = Object.values(this.classes).some(classObj => classObj.name === className);
-        
-        if (className && !classExists) {
-            const classId = `class_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            this.classes[classId] = {
-                id: classId,
-                name: className,
-                students: []
-            };
-            this.saveClasses();
-            return this.classes[classId];
+    async createClass(className) {
+        try {
+            const response = await this.request.post('classes', { name: className });
+            return response;
+        } catch (error) {
+            if (error.status === 400) {
+                return false;
+            }
+            throw error;
         }
-        return false;
     }
     
     /**
@@ -64,49 +35,53 @@ export default class ClassManager {
      * @param {string} newName - The new name for the class
      * @returns {boolean} True if successful, false if class not found or name already exists
      */
-    renameClass(classId, newName) {
-        // Check if the class exists
-        if (!this.classes[classId]) return false;
-        
-        // Check if the new name already exists in another class
-        const nameExists = Object.entries(this.classes).some(([id, classObj]) => 
-            id !== classId && classObj.name === newName
-        );
-        
-        if (nameExists) return false;
-        
-        // Rename the class
-        this.classes[classId].name = newName;
-        this.saveClasses();
-        
-        // Dispatch event to notify other components
-        document.dispatchEvent(new CustomEvent('classRenamed', { 
-            detail: { 
-                classId, 
-                oldName: this.classes[classId].name, 
-                newName 
-            } 
-        }));
-        
-        return true;
+    async renameClass(classId, newName) {
+        try {
+            await this.request.put(`/classes/${classId}`, { name: newName });
+            
+            // Dispatch event to notify other components
+            document.dispatchEvent(new CustomEvent('classRenamed', { 
+                detail: { 
+                    classId, 
+                    newName 
+                } 
+            }));
+            
+            return true;
+        } catch (error) {
+            if (error.status === 400 || error.status === 404) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     /**
      * Get all classes
      * @returns {Array} Array of class objects with id and name
      */
-    getAllClasses() {
-        this.classes = this.loadClasses();
-        return Object.values(this.classes);
+    async getAllClasses() {
+        try {
+            const {classes} = await this.request.get('classes');
+            return classes;
+        } catch (error) {
+            console.error('Error getting all classes:', error);
+            return [];
+        }
     }
     
     /**
      * Get all class names
      * @returns {string[]} Array of class names
      */
-    getClassNames() {
-        this.classes = this.loadClasses();
-        return Object.values(this.classes).map(classObj => classObj.name);
+    async getClassNames() {
+        try {
+            const classes = await this.getAllClasses();
+            return classes.map(classObj => classObj.name);
+        } catch (error) {
+            console.error('Error getting class names:', error);
+            return [];
+        }
     }
     
     /**
@@ -114,9 +89,16 @@ export default class ClassManager {
      * @param {string} classId - The ID of the class
      * @returns {Object|null} Class object or null if not found
      */
-    getClassById(classId) {
-        this.classes = this.loadClasses();
-        return this.classes[classId] || null;
+    async getClassById(classId) {
+        try {
+            const classObj = await this.request.get(`classes/${classId}?include_details=true`);
+            return classObj;
+        } catch (error) {
+            if (error.status === 404) {
+                return null;
+            }
+            throw error;
+        }
     }
     
     /**
@@ -124,11 +106,15 @@ export default class ClassManager {
      * @param {string} className - The name of the class
      * @returns {string|null} Class ID or null if not found
      */
-    getClassIdByName(className) {
-        const classEntry = Object.entries(this.classes).find(([_, classObj]) => 
-            classObj.name === className
-        );
-        return classEntry ? classEntry[0] : null;
+    async getClassIdByName(className) {
+        try {
+            const classes = await this.getAllClasses();
+            const foundClass = classes.find(classObj => classObj.name === className);
+            return foundClass ? foundClass.id : null;
+        } catch (error) {
+            console.error('Error getting class ID by name:', error);
+            return null;
+        }
     }
 
     /**
@@ -136,9 +122,24 @@ export default class ClassManager {
      * @param {string} classId - The ID of the class
      * @returns {Student[]} Array of students in the class
      */
-    getStudents(classId) {
-        this.classes = this.loadClasses();
-        return this.classes[classId].students || [];
+    async getStudents(classId) {
+        try {
+            const classObj = await this.getClassById(classId);
+            if (!classObj || !classObj.students) {
+                return [];
+            }
+            
+            // Convert API response to Student instances
+            return classObj.students.map(student => new Student(
+                student.id,
+                student.name,
+                student.initial_balance,
+                student.current_balance
+            ));
+        } catch (error) {
+            console.error('Error getting students:', error);
+            return [];
+        }
     }
 
     /**
@@ -148,34 +149,33 @@ export default class ClassManager {
      * @param {number} initialBalance - Initial balance for each student
      * @returns {number} Number of students added
      */
-    addStudentsFromCSV(classId, csvString, initialBalance = 0) {
-        // Support both new ID-based and old name-based lookup for backward compatibility
-        let targetClass = this.classes[classId];
-        
-        if (!targetClass) {
-            // Try to find by name (for backward compatibility)
-            const classIdByName = this.getClassIdByName(classId);
-            targetClass = classIdByName ? this.classes[classIdByName] : null;
+    async addStudentsFromCSV(classId, csvString, initialBalance = 0) {
+        try {
+            // Parse CSV and create new students
+            const names = csvString.split(',')
+                .map(name => name.trim())
+                .filter(name => name.length > 0);
+            
+            let addedCount = 0;
+            
+            for (const name of names) {
+                try {
+                    await this.request.post('students', {
+                        name,
+                        initial_balance: initialBalance,
+                        class_id: classId
+                    });
+                    addedCount++;
+                } catch (error) {
+                    console.error(`Error adding student ${name}:`, error);
+                }
+            }
+            
+            return addedCount;
+        } catch (error) {
+            console.error('Error adding students from CSV:', error);
+            return 0;
         }
-        
-        if (!targetClass) return 0;
-        
-        // Parse CSV and create new students
-        const names = csvString.split(',')
-            .map(name => name.trim())
-            .filter(name => name.length > 0);
-        
-        let addedCount = 0;
-        
-        names.forEach(name => {
-            // Generate a unique ID for the student
-            const id = `student_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            targetClass.students.push(new Student(id, name, initialBalance));
-            addedCount++;
-        });
-        
-        this.saveClasses();
-        return addedCount;
     }
 
     /**
@@ -185,36 +185,24 @@ export default class ClassManager {
      * @param {number} initialBalance - Initial balance for the student
      * @returns {Student} The created student object
      */
-    addStudent(classId, studentName, initialBalance = 0) {
-        // Support both new ID-based and old name-based lookup
-        let targetClass = this.classes[classId];
-        
-        if (!targetClass) {
-            // Try to find by name (for backward compatibility)
-            const classIdByName = this.getClassIdByName(classId);
-            if (classIdByName) {
-                targetClass = this.classes[classIdByName];
-                classId = classIdByName;
-            } else {
-                // Create a new class if it doesn't exist
-                const newClassObj = this.createClass(classId);
-                if (newClassObj) {
-                    targetClass = newClassObj;
-                    classId = newClassObj.id;
-                }
-            }
+    async addStudent(classId, studentName, initialBalance = 0) {
+        try {
+            const studentData = await this.request.post('students', {
+                name: studentName,
+                initial_balance: initialBalance,
+                class_id: classId
+            });
+            
+            return new Student(
+                studentData.id,
+                studentData.name,
+                studentData.initial_balance,
+                studentData.current_balance
+            );
+        } catch (error) {
+            console.error('Error adding student:', error);
+            return null;
         }
-        
-        if (!targetClass) return null;
-        
-        // Generate a unique ID for the student
-        const id = `student_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const student = new Student(id, studentName, initialBalance, initialBalance);
-        
-        targetClass.students.push(student);
-        this.saveClasses();
-        
-        return student;
     }
 
     /**
@@ -223,27 +211,16 @@ export default class ClassManager {
      * @param {string} studentId - The ID of the student to remove
      * @returns {boolean} True if successful, false if student not found
      */
-    removeStudent(classId, studentId) {
-        // Support both new ID-based and old name-based lookup
-        let targetClass = this.classes[classId];
-        
-        if (!targetClass) {
-            // Try to find by name (for backward compatibility)
-            const classIdByName = this.getClassIdByName(classId);
-            targetClass = classIdByName ? this.classes[classIdByName] : null;
-        }
-        
-        if (!targetClass) return false;
-        
-        const initialLength = targetClass.students.length;
-        targetClass.students = targetClass.students.filter(student => student.id !== studentId);
-        
-        if (initialLength !== targetClass.students.length) {
-            this.saveClasses();
+    async removeStudent(classId, studentId) {
+        try {
+            await this.request.delete(`students/${studentId}`);
             return true;
+        } catch (error) {
+            if (error.status === 404) {
+                return false;
+            }
+            throw error;
         }
-        
-        return false;
     }
 
     /**
@@ -251,22 +228,16 @@ export default class ClassManager {
      * @param {string} classId - The ID of the class to delete
      * @returns {boolean} True if successful, false if class not found
      */
-    deleteClass(classId) {
-        // Support both new ID-based and old name-based lookup
-        if (this.classes[classId]) {
-            delete this.classes[classId];
-            this.saveClasses();
+    async deleteClass(classId) {
+        try {
+            await this.request.delete(`classes/${classId}`);
             return true;
-        } else {
-            // Try to find by name (for backward compatibility)
-            const classIdByName = this.getClassIdByName(classId);
-            if (classIdByName) {
-                delete this.classes[classIdByName];
-                this.saveClasses();
-                return true;
+        } catch (error) {
+            if (error.status === 404) {
+                return false;
             }
+            throw error;
         }
-        return false;
     }
 
     /**
@@ -277,23 +248,15 @@ export default class ClassManager {
      * @param {string} action - Either 'add' or 'remove'
      * @returns {boolean} True if successful
      */
-    modifyStudentBalance(classId, studentId, amount, action) {
-        const studentsArray = this.getStudents(classId);
-        const student = studentsArray.find(s => s.id === studentId);
-        if (!student) return false;
-        
-        let success = false;
-        if (action === 'add') {
-            success = student.addBalance(amount);
-        } else if (action === 'remove') {
-            success = student.deductBalance(amount);
+    async modifyStudentBalance(classId, studentId, amount, action) {
+        try {
+            const endpoint = action === 'add' ? 'add-balance' : 'deduct-balance';
+            await this.request.put(`students/${studentId}/${endpoint}`, { amount });
+            return true;
+        } catch (error) {
+            console.error('Error modifying student balance:', error);
+            return false;
         }
-        
-        if (success) {
-            this.saveClasses();
-        }
-        
-        return success;
     }
 
     /**
@@ -303,40 +266,39 @@ export default class ClassManager {
      * @param {number} amount - Amount to add or remove
      * @returns {Object} Object with counts of successful and failed operations
      */
-    applyBulkAction(classId, action, amount) {
-        const students = this.getStudents(classId);
-        if (!students || students.length === 0) {
-            return { successCount: 0, failCount: 0 };
-        }
-        
-        const isAdding = action === 'add';
-        let successCount = 0;
-        let failCount = 0;
-        
-        students.forEach(student => {
-            let success = false;
+    async applyBulkAction(classId, action, amount) {
+        try {
+            const students = await this.getStudents(classId);
+            if (!students || students.length === 0) {
+                return { successCount: 0, failCount: 0, studentIds: [] };
+            }
             
-            if (isAdding) {
-                success = student.addBalance(amount);
-            } else {
-                if (student.currentBalance >= amount) {
-                    success = student.deductBalance(amount);
+            let successCount = 0;
+            let failCount = 0;
+            const studentIds = [];
+            
+            for (const student of students) {
+                try {
+                    const success = await this.modifyStudentBalance(classId, student.id, amount, action);
+                    if (success) {
+                        successCount++;
+                        studentIds.push(student.id);
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    failCount++;
                 }
             }
             
-            if (success) {
-                successCount++;
-            } else {
-                failCount++;
-            }
-        });
-        
-        this.saveClasses();
-        
-        return { 
-            successCount, 
-            failCount,
-            studentIds: students.map(s => s.id)
-        };
+            return { 
+                successCount, 
+                failCount,
+                studentIds
+            };
+        } catch (error) {
+            console.error('Error applying bulk action:', error);
+            return { successCount: 0, failCount: 0, studentIds: [] };
+        }
     }
 }

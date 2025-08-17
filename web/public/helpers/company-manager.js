@@ -2,52 +2,16 @@
  * Company Manager
  * Handles data operations for companies in the BusiCode application
  */
-import Storage from './storage.js';
+import Request from './request.js';
 import Company from '../model/company.js';
 import ClassManager from './class-manager.js';
 
 export default class CompanyManager {
     constructor() {
-        this.storage = new Storage('busicode_companies');
-        this.companies = this.loadCompanies();
-        this.classManager = new ClassManager();
-    }
-
-    /**
-     * Load companies from storage
-     * @returns {Object} An object containing all companies
-     */
-    loadCompanies() {
-        const data = this.storage.loadData() || {};
-        
-        // Convert plain objects to Company instances
-        Object.keys(data).forEach(id => {
-            const companyData = data[id];
-            data[id] = new Company(
-                companyData.id,
-                companyData.name,
-                companyData.classroomId || null, // May be null for old data
-                companyData.memberContributions,
-                companyData.memberIds
-            );
-            
-            // Restore expenses and revenues
-            data[id].expenses = companyData.expenses || [];
-            data[id].revenues = companyData.revenues || [];
-            data[id].currentBudget = companyData.currentBudget;
-            
-            // Restore products
-            data[id].products = companyData.products || [];
+        this.request = new Request({
+            url: 'http://localhost:3000',
         });
-        
-        return data;
-    }
-
-    /**
-     * Save companies to storage
-     */
-    saveCompanies() {
-        this.storage.saveData(this.companies);
+        this.classManager = new ClassManager();
     }
 
     /**
@@ -58,79 +22,30 @@ export default class CompanyManager {
      * @param {Object} memberContributions - Object mapping member IDs to their contributions
      * @returns {Object} Result object with company and status information
      */
-    createCompany(companyName, classId, selectedStudentIds, memberContributions) {
-        if (!classId || !companyName || selectedStudentIds.length === 0) {
-            return { success: false, message: 'Missing required information for company creation' };
-        }
-        
-        // Get class information
-        const classObj = this.classManager.getClassById(classId);
-        if (!classObj) {
-            return { success: false, message: 'Turma não encontrada' };
-        }
-        
-        const className = classObj.name;
-        
-        let totalContribution = 0;
-        const students = this.classManager.getStudents(classId);
-        
-        // Verify if each student has sufficient balance for their contribution
-        let insufficientFunds = false;
-        let insufficientStudent = null;
-        
-        selectedStudentIds.forEach(studentId => {
-            const contribution = memberContributions[studentId] || 0;
-            totalContribution += contribution;
+    async createCompany(companyName, classId, selectedStudentIds, memberContributions) {
+        try {
+            const response = await this.request.post('companies', {
+                name: companyName,
+                class_id: classId,
+                student_ids: selectedStudentIds,
+                member_contributions: memberContributions
+            });
             
-            // Check if student has sufficient balance
-            const student = students.find(s => s.id === studentId);
-            if (student && contribution > student.currentBalance) {
-                insufficientFunds = true;
-                insufficientStudent = student;
-            }
-        });
-        
-        if (insufficientFunds) {
+            return {
+                success: true,
+                message: response.message,
+                company: response.company,
+                studentIds: selectedStudentIds,
+                classId,
+                className: response.className,
+                totalContribution: response.totalContribution
+            };
+        } catch (error) {
             return { 
                 success: false, 
-                message: `Aluno ${insufficientStudent.name} não tem saldo suficiente para contribuir R$ ${memberContributions[insufficientStudent.id].toFixed(2)}`
+                message: error.message || 'Erro ao criar empresa'
             };
         }
-        
-        if (totalContribution <= 0) {
-            return { 
-                success: false, 
-                message: 'É necessário que pelo menos um aluno faça uma contribuição para a empresa.' 
-            };
-        }
-        
-        // Create the company with individual contributions
-        const id = `company_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const company = new Company(id, companyName, classId, className);
-        company.addRevenue('Capital Inicial', totalContribution);
-        company.addMembers(selectedStudentIds);
-        
-        // Update student balances by deducting their contributions
-        Object.entries(memberContributions).forEach(([studentId, contribution]) => {
-            const student = students.find(s => s.id === studentId);
-            if (student) {
-                student.deductBalance(contribution);
-            }
-        });
-        this.classManager.saveClasses();
-        
-        this.companies[id] = company;
-        this.saveCompanies();
-        
-        return {
-            success: true,
-            message: `Empresa "${companyName}" criada com sucesso com capital inicial de R$ ${totalContribution.toFixed(2)}!`,
-            company,
-            studentIds: selectedStudentIds,
-            classId,
-            className,
-            totalContribution
-        };
     }
 
     /**
@@ -138,17 +53,30 @@ export default class CompanyManager {
      * @param {string} id - Company ID
      * @returns {Company} The company object
      */
-    getCompany(id) {
-        return this.companies[id];
+    async getCompany(id) {
+        try {
+            const {company} = await this.request.get(`companies/${id}?include_details=true`);
+            return company;
+        } catch (error) {
+            if (error.status === 404) {
+                return null;
+            }
+            throw error;
+        }
     }
 
     /**
      * Get all companies
      * @returns {Company[]} Array of all companies
      */
-    getAllCompanies() {
-        this.companies = this.loadCompanies();
-        return Object.values(this.companies);
+    async getAllCompanies() {
+        try {
+            const {companies} = await this.request.get('companies');
+            return companies;
+        } catch (error) {
+            console.error('Error getting all companies:', error);
+            return [];
+        }
     }
 
     /**
@@ -156,12 +84,29 @@ export default class CompanyManager {
      * @param {string} classId - Class ID
      * @returns {Company[]} Array of companies in the class
      */
-    getCompaniesForClass(classId) {
-        // Support both ID-based and name-based lookup for backward compatibility
-        return Object.values(this.companies)
-            .filter(company => {
-                return company.classroomId === classId;
-            });
+    async getCompaniesForClass(classId) {
+        try {
+            const companies = await this.request.get(`companies?class_id=${classId}`);
+            return companies;
+        } catch (error) {
+            console.error('Error getting companies for class:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get members of a company
+     * @param {string} companyId - Company ID
+     * @returns {Array} Array of member objects
+     */
+    async getCompanyMembers(companyId) {
+        try {
+            const {members} = await this.request.get(`companies/${companyId}/members`);
+            return members;
+        } catch (error) {
+            console.error('Error getting company members:', error);
+            return [];
+        }
     }
 
     /**
@@ -170,16 +115,16 @@ export default class CompanyManager {
      * @param {Object} updates - Object with properties to update
      * @returns {boolean} True if successful, false if company not found
      */
-    updateCompany(id, updates) {
-        const company = this.companies[id];
-        if (!company) return false;
-        
-        Object.keys(updates).forEach(key => {
-            company[key] = updates[key];
-        });
-        
-        this.saveCompanies();
-        return true;
+    async updateCompany(id, updates) {
+        try {
+            await this.request.put(`companies/${id}`, updates);
+            return true;
+        } catch (error) {
+            if (error.status === 404) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     /**
@@ -187,47 +132,66 @@ export default class CompanyManager {
      * @param {string} id - Company ID
      * @returns {boolean} True if successful, false if company not found
      */
-    deleteCompany(id) {
-        if (this.companies[id]) {
-            delete this.companies[id];
-            this.saveCompanies();
+    async deleteCompany(id) {
+        try {
+            await this.request.delete(`companies/${id}`);
             return true;
+        } catch (error) {
+            if (error.status === 404) {
+                return false;
+            }
+            throw error;
         }
-        return false;
     }
 
     /**
      * Add an expense to a company
-     * @param {string} company - Company object
+     * @param {Company} company - Company object
      * @param {string} description - Expense description
      * @param {number} amount - Expense amount
      * @param {string} date - Expense date
      * @returns {Object} The created expense or null if company not found
      */
-    addExpense(company, description, amount, date) {
+    async addExpense(company, description, amount, date) {
         if (!company) return null;
         
-        const expense = company.addExpense(description, amount, date);
-        this.saveCompanies();
-        
-        return expense;
+        try {
+            const expense = await this.request.post('expenses', {
+                company_id: company.id,
+                description,
+                amount,
+                date: date || new Date().toISOString()
+            });
+            return expense;
+        } catch (error) {
+            console.error('Error adding expense:', error);
+            return null;
+        }
     }
 
     /**
      * Add revenue to a company
-     * @param {string} company - Company object
+     * @param {Company} company - Company object
      * @param {string} description - Revenue description
      * @param {number} amount - Revenue amount
      * @param {string} date - Revenue date
      * @returns {Object} The created revenue or null if company not found
      */
-    addRevenue(company, description, amount, date) {
+    async addRevenue(company, description, amount, date) {
         if (!company) return null;
         
-        const revenue = company.addRevenue(description, amount, date);
-        this.saveCompanies();
-        
-        return revenue;
+        try {
+            const revenue = await this.request.post('revenues', {
+                company_id: company.id,
+                description,
+                amount,
+                date: date || new Date().toISOString()
+            });
+            return revenue;
+        } catch (error) {
+            console.error('Error adding revenue:', error);
+            return null;
+        }
     }
 
     /**
@@ -237,14 +201,11 @@ export default class CompanyManager {
      * @param {string} description - Description of the fund addition
      * @returns {Object} The created revenue or null if company not found
      */
-    addFunds(companyId, amount, description = 'Fund addition') {
-        const company = this.companies[companyId];
+    async addFunds(companyId, amount, description = 'Fund addition') {
+        const company = await this.getCompany(companyId);
         if (!company) return null;
         
-        const revenue = company.addFunds(amount, description);
-        this.saveCompanies();
-        
-        return revenue;
+        return await this.addRevenue(company, description, amount);
     }
 
     /**
@@ -254,14 +215,11 @@ export default class CompanyManager {
      * @param {string} description - Description of the fund removal
      * @returns {Object} The created expense or null if company not found
      */
-    removeFunds(companyId, amount, description = 'Fund removal') {
-        const company = this.companies[companyId];
+    async removeFunds(companyId, amount, description = 'Fund removal') {
+        const company = await this.getCompany(companyId);
         if (!company) return null;
         
-        const expense = company.removeFunds(amount, description);
-        this.saveCompanies();
-        
-        return expense;
+        return await this.addExpense(company, description, amount);
     }
     
     /**
@@ -272,90 +230,83 @@ export default class CompanyManager {
      * @param {string} description - Description for the transaction
      * @returns {Object} Result object with status information and expense details
      */
-    distributeProfits(companyId, studentId, amount, description) {
-        const company = this.companies[companyId];
-        if (!company) {
-            return { success: false, message: 'Empresa não encontrada' };
+    async distributeProfits(companyId, studentId, amount, description) {
+        try {
+            const response = await this.request.post('companies/distribute-profits', {
+                company_id: companyId,
+                student_id: studentId,
+                amount,
+                description
+            });
+            
+            return {
+                success: true, 
+                message: response.message,
+                expense: response.expense,
+                studentId,
+                classId: response.classId,
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao distribuir lucros'
+            };
         }
-        
-        // Validate the amount against available profits
-        if (amount > company.getProfit()) {
-            return { success: false, message: 'O valor não pode ser maior que o lucro disponível' };
-        }
-        
-        // Get the student - try with class ID first, then fall back to class name
-        let students = [];
-        students = this.classManager.getStudents(company.classroomId);
-        
-        const student = students.find(s => s.id === studentId);
-        if (!student) {
-            return { success: false, message: 'Aluno não encontrado' };
-        }
-        
-        // Add the expense to the company
-        const expense = company.distributeProfits(studentId, student.name, amount, description);
-        if (!expense) {
-            return { success: false, message: 'Não foi possível distribuir os lucros' };
-        }
-        
-        // Update student balance
-        student.addBalance(amount);
-        this.classManager.saveClasses();
-        
-        // Save company changes
-        this.saveCompanies();
-        
-        return {
-            success: true, 
-            message: `Distribuição de R$ ${amount.toFixed(2)} realizada com sucesso para ${student.name}!`, 
-            expense,
-            studentId,
-            classId: company.classroomId,
-        };
     }
     
     /**
      * Get all classes with their companies
      * @returns {Object} Object mapping class IDs and names to their company lists
      */
-    getClassesWithCompanies() {
-        const allCompanies = this.getAllCompanies();
-        const classesWithCompanies = {};
-        
-        // Get all classes that have companies
-        allCompanies.forEach(company => {
-            const key = company.classroomId;
-            if (!classesWithCompanies[key]) {
-                classesWithCompanies[key] = {
-                    id: company.classroomId,
-                    companies: []
-                };
-            }
-            classesWithCompanies[key].companies.push(company);
-        });
-        
-        return classesWithCompanies;
+    async getClassesWithCompanies() {
+        try {
+            const allCompanies = await this.getAllCompanies();
+            const classesWithCompanies = {};
+            
+            // Get all classes that have companies
+            allCompanies.forEach(company => {
+                const key = company.classId;
+                if (!classesWithCompanies[key]) {
+                    classesWithCompanies[key] = {
+                        id: company.classId,
+                        companies: []
+                    };
+                }
+                classesWithCompanies[key].companies.push(company);
+            });
+            
+            return classesWithCompanies;
+        } catch (error) {
+            console.error('Error getting classes with companies:', error);
+            return {};
+        }
     }
     
     /**
      * Get unique class IDs that have companies
      * @returns {Array} Array of objects with class ID and name
      */
-    getUniqueClasses() {
-        const allCompanies = this.getAllCompanies();
-        const uniqueClasses = new Map();
-        
-        allCompanies.forEach(company => {
-            const key = company.classroomId;
-            if (!uniqueClasses.has(key)) {
-                uniqueClasses.set(key, {
-                    id: company.classroomId,
-                    name: this.classManager.getClassById(company.classroomId)?.name || 'Unknown'
-                });
+    async getUniqueClasses() {
+        try {
+            const companies = await this.getAllCompanies();
+            const uniqueClasses = new Map();
+            
+            for (const company of companies) {
+                const key = company.classId;
+                if (!uniqueClasses.has(key)) {
+                    const classObj = await this.classManager.getClassById(company.classId);
+                    uniqueClasses.set(key, {
+                        id: company.classId,
+                        name: classObj?.name || 'Unknown'
+                    });
+                }
             }
-        });
-        
-        return Array.from(uniqueClasses.values());
+            
+            return Array.from(uniqueClasses.values());
+        } catch (error) {
+            console.error('Error getting unique classes:', error);
+            return [];
+        }
     }
     
     /**
@@ -363,24 +314,23 @@ export default class CompanyManager {
      * @param {string} classId - The ID of the class
      * @returns {number} The number of companies deleted
      */
-    deleteCompaniesByClass(classId) {
-        let deletedCount = 0;
-        
-        Object.keys(this.companies).forEach(companyId => {
-            const company = this.companies[companyId];
+    async deleteCompaniesByClass(classId) {
+        try {
+            const companies = await this.getCompaniesForClass(classId);
+            let deletedCount = 0;
             
-            // Match by class ID
-            if (classId && company.classroomId === classId) {
-                delete this.companies[companyId];
-                deletedCount++;
+            for (const company of companies) {
+                const success = await this.deleteCompany(company.id);
+                if (success) {
+                    deletedCount++;
+                }
             }
-        });
-        
-        if (deletedCount > 0) {
-            this.saveCompanies();
+            
+            return deletedCount;
+        } catch (error) {
+            console.error('Error deleting companies by class:', error);
+            return 0;
         }
-        
-        return deletedCount;
     }
     
     /**
@@ -391,11 +341,11 @@ export default class CompanyManager {
      * @param {number} price - Price per item
      * @returns {Object} The created revenue or null if company not found
      */
-    addProductSales(companyId, productName, sales, price) {
-        const company = this.getCompany(companyId);
+    async addProductSales(companyId, productName, sales, price) {
+        const company = await this.getCompany(companyId);
         if (!company) return null;
         
-        const revenue = this.addRevenue(
+        const revenue = await this.addRevenue(
             company,
             `Venda de produto ${productName}`,
             sales * price
@@ -410,20 +360,22 @@ export default class CompanyManager {
      * @param {Array} studentIds - Array of student IDs to set as company members
      * @returns {Object} Result object with status and message
      */
-    updateCompanyStudents(companyId, studentIds) {
-        const company = this.getCompany(companyId);
-        if (!company) {
-            return { success: false, message: 'Empresa não encontrada.' };
+    async updateCompanyStudents(companyId, studentIds) {
+        try {
+            const response = await this.request.put(`companies/${companyId}/students`, {
+                student_ids: studentIds
+            });
+            
+            return { 
+                success: true, 
+                message: 'Lista de alunos atualizada com sucesso.',
+                company: response.company,
+            };
+        } catch (error) {
+            return { 
+                success: false, 
+                message: error.message || 'Erro ao atualizar lista de alunos.'
+            };
         }
-
-        // Update the company's member IDs
-        company.memberIds = studentIds;
-        this.saveCompanies();
-
-        return { 
-            success: true, 
-            message: 'Lista de alunos atualizada com sucesso.',
-            company
-        };
     }
 }

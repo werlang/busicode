@@ -1,6 +1,8 @@
 /**
  * Storage Manager
- * Handles saving and loading data from local storage
+ * Handles saving and loading UI state and preferences to local storage
+ * NOTE: This class is now only used for UI state (navigation, filters, etc.)
+ * Business data (classes, companies, students, products) is handled via API
  */
 export default class Storage {
     constructor(storageKey) {
