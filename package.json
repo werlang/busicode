@@ -1,15 +1,17 @@
 {
-    "name": "BusiCode Assignments",
+    "name": "busicode",
     "version": "1.0.0",
     "description": "Helper for BusiCode assignments",
     "type": "module",
     "scripts": {
-        "start": "nodemon app.js"
+        "start": "if [ \"$NODE_ENV\" = \"production\" ]; then node app.js; else nodemon app.js; fi"
     },
     "author": "Pablo Werlang",
     "license": "MIT",
     "dependencies": {
+        "cors": "^2.8.5",
         "express": "^4.21.2",
+        "mysql2": "^3.14.3",
         "nodemon": "^3.1.9"
     }
 }

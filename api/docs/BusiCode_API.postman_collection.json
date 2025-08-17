@@ -1,0 +1,999 @@
+{
+  "info": {
+    "name": "BusiCode API",
+    "description": "Complete API collection for testing BusiCode educational business simulation endpoints",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "classId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "studentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Classes",
+      "item": [
+        {
+          "name": "Get All Classes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Classes with Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes?include_students=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes"],
+              "query": [
+                {
+                  "key": "include_students",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Class",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('classId', response.class.id);",
+                  "    console.log('Class ID saved:', response.class.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Class A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Class by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}?include_students=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}"],
+              "query": [
+                {
+                  "key": "include_students",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Class",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test Class A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Class Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Students in Class",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}", "students"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Student to Class",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('studentId', response.student.id);",
+                  "    console.log('Student ID saved:', response.student.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"initialBalance\": 100.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}", "students"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset All Student Balances",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}/reset-balances",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}", "reset-balances"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Students by Class",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students?class_id={{classId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"],
+              "query": [
+                {
+                  "key": "class_id",
+                  "value": "{{classId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('studentId', response.student.id);",
+                  "    console.log('Student ID saved:', response.student.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\",\n  \"classId\": \"{{classId}}\",\n  \"initialBalance\": 150.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Student by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith Updated\",\n  \"initialBalance\": 200.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Balance",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25.00,\n  \"operation\": \"add\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}", "balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deduct Balance",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 15.00,\n  \"operation\": \"deduct\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}", "balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Balance",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"reset\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}", "balance"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Companies",
+      "item": [
+        {
+          "name": "Get All Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Companies by Class",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies?class_id={{classId}}&include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies"],
+              "query": [
+                {
+                  "key": "class_id",
+                  "value": "{{classId}}"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('companyId', response.company.id);",
+                  "    console.log('Company ID saved:', response.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TechStart Inc\",\n  \"classId\": \"{{classId}}\",\n  \"memberIds\": [\"{{studentId}}\"],\n  \"memberContributions\": {\n    \"{{studentId}}\": 50.00\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}?include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}"],
+              "query": [
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Company",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TechStart Inc Updated\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Member to Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"contribution\": 25.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Office supplies\",\n  \"amount\": 19.50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "expenses"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company Expenses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/expenses",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "expenses"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Revenue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Consulting services\",\n  \"amount\": 150.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/revenues",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "revenues"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company Revenues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/revenues",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "revenues"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Financial Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/financial-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "financial-summary"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Distribute Profits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"amount\": 30.00,\n  \"description\": \"Quarterly profit distribution\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/distribute-profits",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "distribute-profits"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products by Company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?company_id={{companyId}}&include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "company_id",
+                  "value": "{{companyId}}"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products by Class",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?class_id={{classId}}&include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "class_id",
+                  "value": "{{classId}}"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Launch Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('productId', response.product.id);",
+                  "    console.log('Product ID saved:', response.product.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smart Widget\",\n  \"price\": 29.99,\n  \"companyId\": \"{{companyId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}?include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"],
+              "query": [
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smart Widget Pro\",\n  \"price\": 34.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Record Product Sale",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5,\n  \"unitPrice\": 29.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/sales",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "sales"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Record Another Sale (Default Price)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/sales",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "sales"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Sales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/sales",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "sales"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sales Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/sales/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "sales", "stats"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product Price",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 39.99\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/price",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}", "price"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cleanup & Delete Operations",
+      "item": [
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member from Company",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}/members/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}", "members", "{{studentId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Company",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/companies/{{companyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["companies", "{{companyId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Class",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/classes/{{classId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes", "{{classId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}
