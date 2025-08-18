@@ -26,9 +26,9 @@ export default class CompanyManager {
         try {
             const response = await this.request.post('companies', {
                 name: companyName,
-                class_id: classId,
-                student_ids: selectedStudentIds,
-                member_contributions: memberContributions
+                classId,
+                memberIds: selectedStudentIds,
+                memberContributions: memberContributions
             });
             
             return {
@@ -86,7 +86,7 @@ export default class CompanyManager {
      */
     async getCompaniesForClass(classId) {
         try {
-            const companies = await this.request.get(`companies?class_id=${classId}`);
+            const {companies} = await this.request.get(`companies`, { class_id: classId });
             return companies;
         } catch (error) {
             console.error('Error getting companies for class:', error);
@@ -156,11 +156,9 @@ export default class CompanyManager {
         if (!company) return null;
         
         try {
-            const expense = await this.request.post('expenses', {
-                company_id: company.id,
+            const expense = await this.request.post(`companies/${company.id}/expenses`, {
                 description,
                 amount,
-                date: date || new Date().toISOString()
             });
             return expense;
         } catch (error) {
@@ -181,11 +179,9 @@ export default class CompanyManager {
         if (!company) return null;
         
         try {
-            const revenue = await this.request.post('revenues', {
-                company_id: company.id,
+            const revenue = await this.request.post(`companies/${company.id}/revenues`, {
                 description,
                 amount,
-                date: date || new Date().toISOString()
             });
             return revenue;
         } catch (error) {
@@ -232,9 +228,8 @@ export default class CompanyManager {
      */
     async distributeProfits(companyId, studentId, amount, description) {
         try {
-            const response = await this.request.post('companies/distribute-profits', {
-                company_id: companyId,
-                student_id: studentId,
+            const response = await this.request.post(`companies/${companyId}/distribute-profits`, {
+                studentId,
                 amount,
                 description
             });
@@ -244,7 +239,6 @@ export default class CompanyManager {
                 message: response.message,
                 expense: response.expense,
                 studentId,
-                classId: response.classId,
             };
         } catch (error) {
             return { 
@@ -360,10 +354,10 @@ export default class CompanyManager {
      * @param {Array} studentIds - Array of student IDs to set as company members
      * @returns {Object} Result object with status and message
      */
-    async updateCompanyStudents(companyId, studentIds) {
+    async updateCompanyMembers(companyId, memberIds) {
         try {
-            const response = await this.request.put(`companies/${companyId}/students`, {
-                student_ids: studentIds
+            const response = await this.request.put(`companies/${companyId}/members`, {
+                memberIds,
             });
             
             return { 
@@ -378,4 +372,105 @@ export default class CompanyManager {
             };
         }
     }
+
+    /**
+     * Add a student to a company
+     * @param {string} studentId - ID of the student to add
+     * @param {string} companyId - ID of the company
+     * @param {number} contribution - Optional contribution amount (defaults to 0)
+     * @returns {Object} Result object with status and message
+     */
+    async addStudentToCompany(studentId, companyId, contribution = 0) {
+        try {
+            const response = await this.request.post(`companies/${companyId}/members`, {
+                studentId,
+                contribution
+            });
+            
+            return {
+                success: true,
+                message: response.message,
+                membership: response.membership
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message || 'Erro ao adicionar aluno à empresa.'
+            };
+        }
+    }
+
+    /**
+     * Remove a student from a company
+     * @param {string} studentId - ID of the student to remove
+     * @param {string} companyId - ID of the company
+     * @returns {Object} Result object with status and message
+     */
+    async removeStudentFromCompany(studentId, companyId) {
+        try {
+            const response = await this.request.delete(`companies/${companyId}/members/${studentId}`);
+            
+            return {
+                success: true,
+                message: response.message
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message || 'Erro ao remover aluno da empresa.'
+            };
+        }
+    }
+
+    /**
+     * Get expenses for a company
+     * @param {string} companyId - Company ID
+     * @returns {Array} Array of expense objects
+     */
+    async getExpenses(companyId) {
+        try {
+            const response = await this.request.get(`companies/${companyId}/expenses`);
+            return response.expenses || [];
+        } catch (error) {
+            console.error('Error getting company expenses:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get revenues for a company
+     * @param {string} companyId - Company ID
+     * @returns {Array} Array of revenue objects
+     */
+    async getRevenues(companyId) {
+        try {
+            const response = await this.request.get(`companies/${companyId}/revenues`);
+            return response.revenues || [];
+        } catch (error) {
+            console.error('Error getting company revenues:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get the profit for a company
+     * @param {string} companyId - Company ID
+     * @returns {number} Profit amount
+     */
+    async getCompanyProfit(companyId) {
+        try {
+            const expenses = await this.getExpenses(companyId);
+            const revenues = await this.getRevenues(companyId);
+            
+            const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const totalRevenues = revenues.reduce((sum, revenue) => sum + revenue.amount, 0);
+            
+            return totalRevenues - totalExpenses;
+        } catch (error) {
+            console.error('Error calculating company profit:', error);
+            return 0;
+        }
+    }
+
+    
 }

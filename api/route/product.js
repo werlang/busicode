@@ -8,10 +8,13 @@ const router = Router();
 // Get all products
 router.get('/', async (req, res, next) => {
     try {
-        const { company_id, class_id, include_details } = req.query;
+        const { company_id, class_id, include_details, start_date, end_date } = req.query;
         let products;
         
-        if (company_id) {
+        // If date filtering is requested, use the efficient database-level method
+        if (start_date || end_date) {
+            products = await Product.getByDateRange(start_date, end_date, company_id, class_id);
+        } else if (company_id) {
             products = await Product.getByCompany(company_id);
         } else if (class_id) {
             products = await Product.getByClass(class_id);

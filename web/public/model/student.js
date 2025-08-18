@@ -13,9 +13,7 @@ export default class Student {
         this.id = id;
         this.name = name;
         this.initialBalance = parseFloat(initialBalance) || 0;
-        this.initial_balance = parseFloat(initialBalance) || 0; // Backend compatibility
         this.currentBalance = parseFloat(currentBalance) || parseFloat(initialBalance) || 0;
-        this.current_balance = parseFloat(currentBalance) || parseFloat(initialBalance) || 0; // Backend compatibility
     }
 
     /**

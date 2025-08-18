@@ -18,7 +18,7 @@ export default class Backup {
     async createBackup() {
         try {
             // Fetch all data from the API
-            const [classes, companies, products] = await Promise.all([
+            const [{classes}, {companies}, {products}] = await Promise.all([
                 this.request.get('classes'),
                 this.request.get('companies'),
                 this.request.get('products')
@@ -27,25 +27,45 @@ export default class Backup {
             // For each class, also fetch its detailed information including students
             const classesWithDetails = await Promise.all(
                 classes.map(async (classObj) => {
-                    const fullClass = await this.request.get(`/classes/${classObj.id}?include_details=true`);
-                    return fullClass;
+                    const fullClass = await this.request.get(`classes/${classObj.id}`, { include_details: true });
+                    return fullClass.class;
                 })
             );
             
-            // For each company, fetch detailed information 
+            // For each company, fetch detailed information including expenses and revenues
             const companiesWithDetails = await Promise.all(
                 companies.map(async (company) => {
-                    const fullCompany = await this.request.get(`/companies/${company.id}?include_details=true`);
-                    return fullCompany;
+                    const [fullCompanyData, expensesData, revenuesData] = await Promise.all([
+                        this.request.get(`companies/${company.id}`, { include_details: true }),
+                        this.request.get(`companies/${company.id}/expenses`),
+                        this.request.get(`companies/${company.id}/revenues`)
+                    ]);
+                    
+                    return {
+                        ...fullCompanyData.company,
+                        expenses: expensesData.expenses || [],
+                        revenues: revenuesData.revenues || []
+                    };
+                })
+            );
+            
+            // For each product, fetch detailed information including sales history
+            const productsWithDetails = await Promise.all(
+                products.map(async (product) => {
+                    const salesData = await this.request.get(`products/${product.id}/sales`);
+                    return {
+                        ...product,
+                        sales: salesData.sales || []
+                    };
                 })
             );
             
             const backup = {
-                version: "2.0", // API version
+                version: "2.1", // Updated version to include expenses, revenues, and sales
                 timestamp: new Date().toISOString(),
                 classes: classesWithDetails,
                 companies: companiesWithDetails,
-                products: products
+                products: productsWithDetails
             };
             
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -74,14 +94,23 @@ export default class Backup {
         try {
             const backup = JSON.parse(data);
             
-            // Check if it's a new format backup (API-based) or old format (localStorage)
-            if (backup.version && backup.version === "2.0") {
-                // New API-based backup format
-                await this.restoreApiBackup(backup);
-            } else {
-                // Legacy localStorage backup format
-                await this.restoreLegacyBackup(backup);
+            // Validate backup format
+            if (!backup.version || !['2.0', '2.1'].includes(backup.version)) {
+                throw new Error('Formato de backup não suportado. Apenas versões 2.0 e 2.1 são aceitas.');
             }
+            
+            // Validate required fields
+            if (!backup.classes || !backup.companies || !backup.products) {
+                throw new Error('Arquivo de backup inválido: campos obrigatórios ausentes.');
+            }
+            
+            // Show confirmation dialog
+            if (!confirm('Isso irá substituir todos os dados existentes. Tem certeza que deseja continuar?')) {
+                return;
+            }
+            
+            Toast.show({ message: 'Iniciando restauração do backup...', type: 'info' });
+            await this.restoreApiBackup(backup);
             
             Toast.show({ message: 'Backup restaurado com sucesso! Recarregando página...', type: 'success' });
             setTimeout(() => location.reload(), 2000);
@@ -92,124 +121,156 @@ export default class Backup {
     }
     
     async restoreApiBackup(backup) {
-        // First, clear existing data (optional - you might want to ask for confirmation)
-        // Note: This is a dangerous operation and should be handled carefully in production
+        console.log('Starting backup restoration...');
+        
+        // Store mappings for ID references
+        const classIdMap = new Map(); // old ID -> new ID
+        const studentIdMap = new Map(); // old ID -> new ID
+        const companyIdMap = new Map(); // old ID -> new ID
+        const productIdMap = new Map(); // old ID -> new ID
         
         // Restore classes first
-        if (backup.classes) {
+        console.log(`Restoring ${backup.classes?.length || 0} classes...`);
+        if (backup.classes && backup.classes.length > 0) {
             for (const classData of backup.classes) {
                 try {
-                    const createdClass = await this.request.post('classes', {
+                    console.log(`Creating class: ${classData.name}`);
+                    const response = await this.request.post('classes', {
                         name: classData.name
                     });
+                    const createdClass = response.class || response;
+                    classIdMap.set(classData.id, createdClass.id);
                     
                     // Restore students for this class
-                    if (classData.students) {
+                    if (classData.students && classData.students.length > 0) {
+                        console.log(`Creating ${classData.students.length} students for class ${classData.name}`);
                         for (const student of classData.students) {
-                            await this.request.post('students', {
+                            const studentResponse = await this.request.post('students', {
                                 name: student.name,
-                                initial_balance: student.initial_balance || student.initialBalance,
-                                current_balance: student.current_balance || student.currentBalance,
-                                class_id: createdClass.id
+                                initialBalance: student.initialBalance || 0,
+                                currentBalance: student.currentBalance || student.initialBalance || 0,
+                                classId: createdClass.id
                             });
+                            const createdStudent = studentResponse.student || studentResponse;
+                            studentIdMap.set(student.id, createdStudent.id);
                         }
                     }
                 } catch (error) {
                     console.error('Error restoring class:', classData.name, error);
+                    throw new Error(`Falha ao restaurar classe '${classData.name}': ${error.message}`);
                 }
             }
         }
         
-        // Restore companies
-        if (backup.companies) {
+        // Restore companies with their members
+        console.log(`Restoring ${backup.companies?.length || 0} companies...`);
+        if (backup.companies && backup.companies.length > 0) {
             for (const companyData of backup.companies) {
                 try {
-                    await this.request.post('/companies', {
-                        name: companyData.name,
-                        class_id: companyData.class_id || companyData.classId,
-                        student_ids: companyData.member_ids || companyData.memberIds || [],
-                        member_contributions: companyData.member_contributions || companyData.memberContributions || {}
-                    });
-                } catch (error) {
-                    console.error('Error restoring company:', companyData.name, error);
-                }
-            }
-        }
-        
-        // Restore products
-        if (backup.products) {
-            for (const productData of backup.products) {
-                try {
-                    await this.request.post('/products', {
-                        name: productData.name,
-                        price: productData.price,
-                        company_id: productData.company_id || productData.companyId
-                    });
-                } catch (error) {
-                    console.error('Error restoring product:', productData.name, error);
-                }
-            }
-        }
-    }
-    
-    async restoreLegacyBackup(backup) {
-        // Handle old localStorage format
-        // This is more complex as we need to convert the old format to API calls
-        
-        // Convert old classes format
-        if (backup.busicode_classes) {
-            for (const [classId, classData] of Object.entries(backup.busicode_classes)) {
-                try {
-                    const createdClass = await this.request.post('/classes', {
-                        name: classData.name
+                    console.log(`Creating company: ${companyData.name}`);
+                    
+                    // Map member IDs to new IDs
+                    const memberIds = (companyData.members || []).map(member => studentIdMap.get(member.id)).filter(Boolean);
+                    const memberContributions = {};
+                    
+                    (companyData.members || []).forEach(member => {
+                        const newStudentId = studentIdMap.get(member.id);
+                        if (newStudentId && member.contribution !== undefined) {
+                            memberContributions[newStudentId] = member.contribution;
+                        }
                     });
                     
-                    // Restore students
-                    if (classData.students) {
-                        for (const student of classData.students) {
-                            await this.request.post('/students', {
-                                name: student.name,
-                                initial_balance: student.initialBalance,
-                                current_balance: student.currentBalance,
-                                class_id: createdClass.id
-                            });
+                    const newClassId = classIdMap.get(companyData.classId);
+                    if (!newClassId) {
+                        throw new Error(`Class ID not found for company ${companyData.name}`);
+                    }
+                    
+                    const companyResponse = await this.request.post('companies', {
+                        name: companyData.name,
+                        classId: newClassId,
+                        memberIds: memberIds,
+                        memberContributions: memberContributions
+                    });
+                    const createdCompany = companyResponse.company || companyResponse;
+                    companyIdMap.set(companyData.id, createdCompany.id);
+                    
+                    // Restore company expenses
+                    if (companyData.expenses && companyData.expenses.length > 0) {
+                        console.log(`Creating ${companyData.expenses.length} expenses for company ${companyData.name}`);
+                        for (const expense of companyData.expenses) {
+                            try {
+                                await this.request.post(`companies/${createdCompany.id}/expenses`, {
+                                    description: expense.description,
+                                    amount: expense.amount
+                                });
+                            } catch (error) {
+                                console.error('Error restoring expense:', expense.description, error);
+                            }
+                        }
+                    }
+                    
+                    // Restore company revenues
+                    if (companyData.revenues && companyData.revenues.length > 0) {
+                        console.log(`Creating ${companyData.revenues.length} revenues for company ${companyData.name}`);
+                        for (const revenue of companyData.revenues) {
+                            try {
+                                await this.request.post(`companies/${createdCompany.id}/revenues`, {
+                                    description: revenue.description,
+                                    amount: revenue.amount
+                                });
+                            } catch (error) {
+                                console.error('Error restoring revenue:', revenue.description, error);
+                            }
                         }
                     }
                 } catch (error) {
-                    console.error('Error restoring legacy class:', error);
+                    console.error('Error restoring company:', companyData.name, error);
+                    throw new Error(`Falha ao restaurar empresa '${companyData.name}': ${error.message}`);
                 }
             }
         }
         
-        // Convert old companies format
-        if (backup.busicode_companies) {
-            for (const [companyId, companyData] of Object.entries(backup.busicode_companies)) {
+        // Restore products with their sales
+        console.log(`Restoring ${backup.products?.length || 0} products...`);
+        if (backup.products && backup.products.length > 0) {
+            for (const productData of backup.products) {
                 try {
-                    await this.request.post('/companies', {
-                        name: companyData.name,
-                        class_id: companyData.classId,
-                        student_ids: companyData.memberIds || [],
-                        member_contributions: companyData.memberContributions || {}
-                    });
-                } catch (error) {
-                    console.error('Error restoring legacy company:', error);
-                }
-            }
-        }
-        
-        // Convert old products format
-        if (backup.busicode_product_launches) {
-            for (const productData of backup.busicode_product_launches) {
-                try {
-                    await this.request.post('/products', {
+                    console.log(`Creating product: ${productData.name}`);
+                    
+                    const newCompanyId = companyIdMap.get(productData.companyId);
+                    if (!newCompanyId) {
+                        throw new Error(`Company ID not found for product ${productData.name}`);
+                    }
+                    
+                    const productResponse = await this.request.post('products', {
                         name: productData.name,
                         price: productData.price,
-                        company_id: productData.companyId
+                        companyId: newCompanyId
                     });
+                    const createdProduct = productResponse.product || productResponse;
+                    productIdMap.set(productData.id, createdProduct.id);
+                    
+                    // Restore product sales
+                    if (productData.sales && productData.sales.length > 0) {
+                        console.log(`Creating ${productData.sales.length} sales for product ${productData.name}`);
+                        for (const sale of productData.sales) {
+                            try {
+                                await this.request.post(`products/${createdProduct.id}/sales`, {
+                                    quantity: sale.quantity,
+                                    unitPrice: sale.unit_price || sale.unitPrice || productData.price
+                                });
+                            } catch (error) {
+                                console.error('Error restoring sale for product:', productData.name, error);
+                            }
+                        }
+                    }
                 } catch (error) {
-                    console.error('Error restoring legacy product:', error);
+                    console.error('Error restoring product:', productData.name, error);
+                    throw new Error(`Falha ao restaurar produto '${productData.name}': ${error.message}`);
                 }
             }
         }
+        
+        console.log('Backup restoration completed successfully!');
     }
 }

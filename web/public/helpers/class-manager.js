@@ -37,7 +37,7 @@ export default class ClassManager {
      */
     async renameClass(classId, newName) {
         try {
-            await this.request.put(`/classes/${classId}`, { name: newName });
+            await this.request.put(`classes/${classId}`, { name: newName });
             
             // Dispatch event to notify other components
             document.dispatchEvent(new CustomEvent('classRenamed', { 
@@ -60,9 +60,9 @@ export default class ClassManager {
      * Get all classes
      * @returns {Array} Array of class objects with id and name
      */
-    async getAllClasses() {
+    async getAllClasses(includeStudents = false) {
         try {
-            const {classes} = await this.request.get('classes');
+            const {classes} = await this.request.get('classes', { include_students: includeStudents });
             return classes;
         } catch (error) {
             console.error('Error getting all classes:', error);
@@ -89,9 +89,12 @@ export default class ClassManager {
      * @param {string} classId - The ID of the class
      * @returns {Object|null} Class object or null if not found
      */
-    async getClassById(classId) {
+    async getClassById(classId, includeStudents = false) {
         try {
-            const classObj = await this.request.get(`classes/${classId}?include_details=true`);
+            const { class: classObj } = await this.request.get(`classes/${classId}`, {
+                include_details: true,
+                include_students: includeStudents
+            });
             return classObj;
         } catch (error) {
             if (error.status === 404) {
@@ -124,7 +127,7 @@ export default class ClassManager {
      */
     async getStudents(classId) {
         try {
-            const classObj = await this.getClassById(classId);
+            const classObj = await this.getClassById(classId, true);
             if (!classObj || !classObj.students) {
                 return [];
             }
@@ -133,8 +136,8 @@ export default class ClassManager {
             return classObj.students.map(student => new Student(
                 student.id,
                 student.name,
-                student.initial_balance,
-                student.current_balance
+                student.initialBalance,
+                student.currentBalance
             ));
         } catch (error) {
             console.error('Error getting students:', error);
@@ -162,8 +165,8 @@ export default class ClassManager {
                 try {
                     await this.request.post('students', {
                         name,
-                        initial_balance: initialBalance,
-                        class_id: classId
+                        initialBalance,
+                        classId
                     });
                     addedCount++;
                 } catch (error) {
@@ -189,15 +192,15 @@ export default class ClassManager {
         try {
             const studentData = await this.request.post('students', {
                 name: studentName,
-                initial_balance: initialBalance,
-                class_id: classId
+                initialBalance,
+                classId
             });
             
             return new Student(
                 studentData.id,
                 studentData.name,
-                studentData.initial_balance,
-                studentData.current_balance
+                studentData.initialBalance,
+                studentData.currentBalance
             );
         } catch (error) {
             console.error('Error adding student:', error);
@@ -250,8 +253,8 @@ export default class ClassManager {
      */
     async modifyStudentBalance(classId, studentId, amount, action) {
         try {
-            const endpoint = action === 'add' ? 'add-balance' : 'deduct-balance';
-            await this.request.put(`students/${studentId}/${endpoint}`, { amount });
+            const operation = action === 'add' ? 'add' : 'deduct';
+            await this.request.put(`students/${studentId}/balance`, { amount, operation });
             return true;
         } catch (error) {
             console.error('Error modifying student balance:', error);

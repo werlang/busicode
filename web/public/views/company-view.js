@@ -14,6 +14,10 @@ export default class CompanyView {
         this.companyManager = new CompanyManager();
         this.classManager = new ClassManager();
         this.navigationStorage = new Storage('busicode_navigation'); // For remembering filter
+
+        document.addEventListener('classSelectsUpdated', () => {
+            this.updateCompanySelect();
+        });
     }
 
     /**
@@ -152,6 +156,9 @@ export default class CompanyView {
     async updateClassSelect() {
         const classes = await this.classManager.getAllClasses();
         
+        // Sort classes alphabetically by name
+        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        
         // Store the current selection
         const companyClassSelect = document.querySelector('#company-class-select');
         const currentSelection = companyClassSelect.value;
@@ -182,11 +189,14 @@ export default class CompanyView {
     /**
      * Update student select dropdown based on selected class
      */
-    updateStudentSelect() {
+    async updateStudentSelect() {
         const companyClassSelect = document.querySelector('#company-class-select');
         const classId = companyClassSelect.value;
-        const students = classId ? this.classManager.getStudents(classId) : [];
-        
+        const students = classId ? await this.classManager.getStudents(classId) : [];
+
+        // Sort students alphabetically by name
+        students.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
         // Clear options
         const companyStudentsSelect = document.querySelector('#company-students');
         companyStudentsSelect.innerHTML = '';
@@ -215,6 +225,9 @@ export default class CompanyView {
         const classSelect = document.querySelector('#company-filter-select');
         const classes = await this.companyManager.getUniqueClasses();
 
+        // Sort classes alphabetically by name
+        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
         // Clear options
         classSelect.innerHTML = '';
         
@@ -237,20 +250,18 @@ export default class CompanyView {
         if (navData.companyClassFilter && [...classSelect.options].some(opt => opt.value === navData.companyClassFilter)) {
             classSelect.value = navData.companyClassFilter;
         }
-        // Render list of companies
-        this.renderCompanyList(classSelect.value);
     }
 
     /**
      * Update student contributions fields when students are selected
      */
-    updateStudentContributions() {
+    async updateStudentContributions() {
         const companyClassSelect = document.querySelector('#company-class-select');
         const companyStudentsSelect = document.querySelector('#company-students');
         const selectedStudentIds = Array.from(companyStudentsSelect.selectedOptions).map(option => option.value);
         const classId = companyClassSelect.value;
-        const students = this.classManager.getStudents(classId);
-        
+        const students = await this.classManager.getStudents(classId);
+
         // Clear the contributions container
         const studentContributionsContainer = document.querySelector('#student-contributions');
         studentContributionsContainer.innerHTML = '';
@@ -341,13 +352,17 @@ export default class CompanyView {
         // Listen for company creation events
         document.addEventListener('companyCreated', () => {
             this.updateCompanySelect();
+            this.renderCompanyList();
+        });
+
+        // Listen for company deletion events
+        document.addEventListener('companyDeleted', () => {
+            this.updateCompanySelect();
+            this.renderCompanyList();
         });
 
         // Listen for product sales
         document.addEventListener('productSalesUpdated', (event) => {
-            const { productName, sales, price, companyId } = event.detail;
-            
-            this.companyManager.addProductSales(companyId, productName, sales, price);
             this.renderCompanyList();
         });
     }
@@ -374,6 +389,9 @@ export default class CompanyView {
             return;
         }
 
+        // Sort companies alphabetically by name
+        companies.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
         companies.forEach(async company => {
             const companyMembers = await this.companyManager.getCompanyMembers(company.id);
             const companyCard = document.createElement('div');
@@ -388,9 +406,13 @@ export default class CompanyView {
                 return student ? student.name : 'Aluno não encontrado';
             }));
 
-            const classroomName = this.classManager.getClassById(company.classId).name;
+            const classroomName = (await this.classManager.getClassById(company.classId)).name;
 
-            const companyInstance = new Company(company);
+            const expenses = await this.companyManager.getExpenses(company.id);
+            const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
+            const revenues = await this.companyManager.getRevenues(company.id);
+            const totalRevenues = revenues.reduce((acc, rev) => acc + rev.amount, 0);
+            const profit = totalRevenues - totalExpenses;
 
             const companyContent = document.createElement('div');
             companyContent.className = 'company-header';
@@ -401,15 +423,15 @@ export default class CompanyView {
                     <div class="company-finances">
                         <div class="finance-item">
                             <div>Receitas</div>
-                            <div class="finance-value budget">R$ ${(companyInstance.getTotalRevenues()).toFixed(2)}</div>
+                            <div class="finance-value budget">R$ ${totalRevenues.toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
                             <div>Despesas</div>
-                            <div class="finance-value expenses">R$ ${(companyInstance.getTotalExpenses()).toFixed(2)}</div>
+                            <div class="finance-value expenses">R$ ${totalExpenses.toFixed(2)}</div>
                         </div>
                         <div class="finance-item">
                             <div>Caixa</div>
-                            <div class="finance-value profit">R$ ${(companyInstance.getProfit()).toFixed(2)}</div>
+                            <div class="finance-value profit">R$ ${profit.toFixed(2)}</div>
                         </div>
                     </div>
                 `;
@@ -417,7 +439,12 @@ export default class CompanyView {
             companyCard.appendChild(companyContent);
 
             // Add activity history
-            const activityHistory = companyInstance.getActivityHistory();
+
+
+            const activityHistory = [
+                ...expenses.map(e => ({...e, type: 'expense', displayAmount: `- R$ ${e.amount.toFixed(2)}`, date: e.date})),
+                ...revenues.map(r => ({...r, type: 'revenue', displayAmount: `+ R$ ${r.amount.toFixed(2)}`, date: r.date}))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date));
             if (activityHistory.length > 0) {
                 const historyContainer = document.createElement('div');
                 historyContainer.className = 'activity-history-container';
@@ -458,7 +485,7 @@ export default class CompanyView {
                     const viewAllButton = document.createElement('button');
                     viewAllButton.textContent = 'Ver Histórico Completo';
                     viewAllButton.className = 'view-all-button';
-                    viewAllButton.addEventListener('click', () => this.showFullHistoryModal(company));
+                    viewAllButton.addEventListener('click', () => this.showFullHistoryModal(company, activityHistory));
                     
                     viewAllItem.appendChild(viewAllButton);
                     historyList.appendChild(viewAllItem);
@@ -495,7 +522,7 @@ export default class CompanyView {
             profitDistBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
             
             // Only enable the button if there are profits to distribute
-            if (companyInstance.getProfit() <= 0) {
+            if (profit <= 0) {
                 profitDistBtn.disabled = true;
                 profitDistBtn.title = 'Não há lucros disponíveis para distribuir';
             }
@@ -519,8 +546,8 @@ export default class CompanyView {
                     confirmText: 'Excluir',
                     cancelText: 'Cancelar',
                     type: 'danger',
-                    onConfirm: () => {
-                        this.companyManager.deleteCompany(company.id);
+                    onConfirm: async () => {
+                        await this.companyManager.deleteCompany(company.id);
                         Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
                         
                         // Notify other components that a company has been deleted
@@ -528,9 +555,7 @@ export default class CompanyView {
                             detail: { 
                                 companyId: company.id
                             }
-                        }));
-                        
-                        this.renderCompanyList();
+                        }));                        
                     }
                 });
             });
@@ -557,6 +582,7 @@ export default class CompanyView {
                     label: 'Descrição:',
                     type: 'text',
                     placeholder: `Descreva a ${isExpense ? 'despesa' : 'receita'}`,
+                    value: `${isExpense ? 'Despesa' : 'Receita'} da empresa ${company.name}`,
                     required: true
                 },
                 {
@@ -576,7 +602,7 @@ export default class CompanyView {
             ],
             confirmText: 'Salvar',
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const { description, amount, date } = values;
                 
                 if (isNaN(amount) || parseFloat(amount) <= 0) {
@@ -585,10 +611,10 @@ export default class CompanyView {
                 }
                 
                 if (isExpense) {
-                    this.companyManager.addExpense(company, description, amount, date);
+                    await this.companyManager.addExpense(company, description, amount, date);
                     Toast.show({ message: 'Despesa adicionada com sucesso!', type: 'success' });
                 } else {
-                    this.companyManager.addRevenue(company, description, amount, date);
+                    await this.companyManager.addRevenue(company, description, amount, date);
                     Toast.show({ message: 'Receita adicionada com sucesso!', type: 'success' });
                 }
                 
@@ -602,13 +628,15 @@ export default class CompanyView {
      * Show a modal dialog for distributing profits to company members
      * @param {Object} company - The company object
      */
-    showDistributeProfitsModal(company) {
+    async showDistributeProfitsModal(company) {
         // Get current company members with their details
-        const students = company.memberIds.map(id => {
-            const classStudents = this.classManager.getStudents(company.classId);
-            return classStudents.find(s => s.id === id);
-        }).filter(student => student); // Filter out any undefined students
-        
+        const members = await this.companyManager.getCompanyMembers(company.id);
+
+        const students = (await Promise.all(members.map(async member => {
+            const classStudents = await this.classManager.getStudents(company.classId);
+            return classStudents.find(s => s.id === member.id);
+        }))).filter(student => student); // Filter out any undefined students
+
         if (students.length === 0) {
             Toast.show({ message: 'Não há membros disponíveis para distribuir lucros.', type: 'warning' });
             return;
@@ -640,14 +668,16 @@ export default class CompanyView {
                 value: 'Distribuição de lucros'
             }
         ];
-        
+
+        const profit = await this.companyManager.getCompanyProfit(company.id);
+
         Modal.showInput({
             title: `Distribuir Lucros - ${company.name}`,
-            message: `Lucro disponível: R$ ${company.getProfit().toFixed(2)}`,
+            message: `Lucro disponível: R$ ${profit.toFixed(2)}`,
             fields,
             confirmText: 'Distribuir',
             cancelText: 'Cancelar',
-            onConfirm: (values) => {
+            onConfirm: async (values) => {
                 const { studentId, amount, description } = values;
                 const parsedAmount = parseFloat(amount);
                 
@@ -657,7 +687,7 @@ export default class CompanyView {
                 }
                 
                 // Use company manager to distribute profits
-                const result = this.companyManager.distributeProfits(
+                const result = await this.companyManager.distributeProfits(
                     company.id,
                     studentId,
                     parsedAmount,
@@ -690,9 +720,7 @@ export default class CompanyView {
      * Show modal with full activity history
      * @param {Object} company - The company
      */
-    showFullHistoryModal(company) {
-        const activityHistory = company.getActivityHistory();
-        
+    showFullHistoryModal(company, activityHistory) {
         const modalContent = document.createElement('div');
         modalContent.className = 'activity-history-modal';
         
@@ -762,19 +790,16 @@ export default class CompanyView {
      * Show a modal dialog for editing students in a company
      * @param {Object} company - The company object
      */
-    showEditStudentsModal(company) {
+    async showEditStudentsModal(company) {
         // Get all available students from the class
-        const allClassStudents = this.classManager.getStudents(company.classId);
-        
-        // Create two arrays: one for students in the company and one for students not in the company
-        const companyStudents = allClassStudents.filter(student => 
-            company.memberIds.includes(student.id)
-        );
+        const allClassStudents = await this.classManager.getStudents(company.classId);
+
+        const companyStudents = await this.companyManager.getCompanyMembers(company.id);
         
         const availableStudents = allClassStudents.filter(student => 
-            !company.memberIds.includes(student.id)
+            !companyStudents.map(s => s.id).includes(student.id)
         );
-        
+
         // Create the modal content with two select lists
         const modalContent = document.createElement('div');
         modalContent.className = 'edit-students-modal';
@@ -874,15 +899,28 @@ export default class CompanyView {
             message: modalContent.outerHTML,
             confirmText: 'Salvar',
             cancelText: 'Cancelar',
-            onConfirm: () => {
+            onConfirm: async () => {
                 // Get current list of students in the company from the modal
                 const companyStudentsList = document.querySelector('#company-students-list');
                 const updatedMemberIds = Array.from(companyStudentsList.options).map(option => option.value);
-                
-                // Update the company with the new list of students
-                const result = this.companyManager.updateCompanyStudents(company.id, updatedMemberIds);
-                
-                if (result.success) {
+
+                const currentMemberIds = companyStudents.map(s => s.id);
+
+                const updatePromiseList = [];
+
+                const removeList = currentMemberIds.filter(id => !updatedMemberIds.includes(id));
+                updatePromiseList.push(...removeList.map(async id => {
+                    return this.companyManager.removeStudentFromCompany(id, company.id);
+                }));
+
+                const addList = updatedMemberIds.filter(id => !currentMemberIds.includes(id));
+                updatePromiseList.push(...addList.map(async id => {
+                    return this.companyManager.addStudentToCompany(id, company.id);
+                }));
+
+                const result = await Promise.all(updatePromiseList);
+
+                if (result.every(res => res.success)) {
                     this.renderCompanyList();
                     Toast.show({ message: 'Lista de alunos atualizada com sucesso!', type: 'success' });
                 } else {

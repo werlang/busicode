@@ -173,13 +173,6 @@ router.post('/:id/reset-balances', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
     try {
         const classObj = await new Class({ id: req.params.id }).get();
-        
-        // Check if class has students
-        const students = await classObj.getStudents();
-        if (students.length > 0) {
-            throw new CustomError(409, 'Cannot delete class with students. Delete students first.');
-        }
-        
         await classObj.delete();
         
         res.send({ 

@@ -735,6 +735,139 @@
           "response": []
         },
         {
+          "name": "Get Products by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?start_date=2025-01-01&end_date=2025-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-01-01",
+                  "description": "Filter products launched on or after this date"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-12-31",
+                  "description": "Filter products launched on or before this date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products Launched After Date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?start_date=2025-08-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-08-01",
+                  "description": "Get all products launched on or after August 1, 2025"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products Launched Today",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?start_date=2025-08-17T00:00:00Z&end_date=2025-08-17T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-08-17T00:00:00Z",
+                  "description": "Start of today"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-08-17T23:59:59Z",
+                  "description": "End of today"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Company Products by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?company_id={{companyId}}&start_date=2025-01-01&end_date=2025-12-31&include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "company_id",
+                  "value": "{{companyId}}"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-12-31"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Class Products by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?class_id={{classId}}&start_date=2025-08-01&end_date=2025-08-31&include_details=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "class_id",
+                  "value": "{{classId}}"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2025-08-01",
+                  "description": "Products launched in August 2025"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-08-31"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Launch Product",
           "event": [
             {

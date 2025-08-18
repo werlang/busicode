@@ -196,7 +196,11 @@ router.get('/:id/expenses', async (req, res, next) => {
         
         res.send({ 
             company: company.toJSON(),
-            expenses 
+            expenses: expenses.map(expense => ({
+                description: expense.description,
+                date: expense.created_at,
+                amount: expense.amount,
+            }))
         });
     } catch (error) {
         next(error);
@@ -237,7 +241,11 @@ router.get('/:id/revenues', async (req, res, next) => {
         
         res.send({ 
             company: company.toJSON(),
-            revenues 
+            revenues: revenues.map(revenue => ({ 
+                description: revenue.description,
+                date: revenue.created_at,
+                amount: revenue.amount,
+            }))
         });
     } catch (error) {
         next(error);

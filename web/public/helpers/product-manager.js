@@ -14,21 +14,6 @@ export default class ProductManager {
         this.companyManager = new CompanyManager();
     }
 
-    /**
-     * Convert API response to Product model
-     * @private
-     */
-    _convertToProductModel(productData) {
-        return new Product({
-            id: productData.id,
-            name: productData.name,
-            price: productData.price,
-            companyId: productData.companyId,
-            sales: productData.sales || 0,
-            total: productData.total || 0,
-            launchedAt: productData.launchedAt
-        });
-    }
 
     /**
      * Get all launched products
@@ -37,7 +22,15 @@ export default class ProductManager {
     async getAllLaunchedProducts() {
         try {
             const {products} = await this.request.get('products');
-            return products.map(product => this._convertToProductModel(product));
+            return products.map(product => new Product({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                companyId: product.companyId,
+                sales: product.salesCount || 0,
+                total: product.totalRevenue || 0,
+                launchedAt: product.createdAt || product.launchedAt
+            }));
         } catch (error) {
             console.error('Error getting all launched products:', error);
             return [];
@@ -51,8 +44,16 @@ export default class ProductManager {
      */
     async getLaunchedProductsByClassId(classId) {
         try {
-            const products = await this.request.get(`products?class_id=${classId}`);
-            return products.map(product => this._convertToProductModel(product));
+            const {products} = await this.request.get(`products`, { class_id: classId });
+            return products.map(product => new Product({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                companyId: product.companyId,
+                sales: product.salesCount || 0,
+                total: product.totalRevenue || 0,
+                launchedAt: product.createdAt || product.launchedAt
+            }));
         } catch (error) {
             console.error('Error getting products by class ID:', error);
             return [];
@@ -69,7 +70,7 @@ export default class ProductManager {
     async launchProduct(companyId, productName, productPrice) {
         try {
             const response = await this.request.post('products', {
-                company_id: companyId,
+                companyId,
                 name: productName,
                 price: productPrice
             });
@@ -77,7 +78,7 @@ export default class ProductManager {
             return { 
                 success: true, 
                 message: response.message,
-                product: this._convertToProductModel(response.product),
+                product: response.product,
                 company: response.company
             };
         } catch (error) {
@@ -103,7 +104,7 @@ export default class ProductManager {
             return {
                 success: true,
                 message: response.message,
-                product: this._convertToProductModel(response.product)
+                product: response.product
             };
         } catch (error) {
             return { 
@@ -116,22 +117,26 @@ export default class ProductManager {
     /**
      * Add sales to a product
      * @param {string} productId - ID of the product
-     * @param {number} salesCount - Number of sales to add
+     * @param {number} quantity - Number of sales to add
      * @returns {Object} Result object with product and sales information
      */
-    async addProductSales(productId, salesCount) {
+    async addProductSales(productId, quantity) {
         try {
             const response = await this.request.post(`products/${productId}/sales`, {
-                sales_count: salesCount
+                quantity: quantity
             });
             
             return {
                 success: true,
                 message: response.message,
-                product: this._convertToProductModel(response.product),
-                salesCount,
+                product: {
+                    ...response.product,
+                    sales: response.product.salesCount,
+                    total: response.product.totalRevenue,
+                },
+                quantity,
                 price: response.product.price,
-                companyId: response.product.company_id
+                companyId: response.product.companyId
             };
         } catch (error) {
             return { 
@@ -172,17 +177,17 @@ export default class ProductManager {
      */
     async getProductsByDateRange(startDate, endDate = null) {
         try {
-            let url = 'products?';
+            let opt = {};
             const start = startDate instanceof Date ? startDate.toISOString() : new Date(startDate).toISOString();
-            url += `start_date=${start}`;
+            opt.start_date = start;
             
             if (endDate) {
                 const end = endDate instanceof Date ? endDate.toISOString() : new Date(endDate).toISOString();
-                url += `&end_date=${end}`;
+                opt.end_date = end;
             }
-            
-            const products = await this.request.get(url);
-            return products.map(product => this._convertToProductModel(product));
+
+            const {products} = await this.request.get('products', opt);
+            return products;
         } catch (error) {
             console.error('Error getting products by date range:', error);
             return [];
@@ -215,8 +220,8 @@ export default class ProductManager {
      */
     async getProduct(productId) {
         try {
-            const productData = await this.request.get(`products/${productId}`);
-            return this._convertToProductModel(productData);
+            const {product} = await this.request.get(`products/${productId}`);
+            return product;
         } catch (error) {
             if (error.status === 404) {
                 return null;

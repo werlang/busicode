@@ -68,6 +68,46 @@ export default class Product extends Model {
         }));
     }
 
+    static async getByDateRange(startDate = null, endDate = null, companyId = null, classId = null) {
+        let sql = `
+            SELECT p.* FROM products p 
+            ${classId ? 'JOIN companies c ON p.company_id = c.id' : ''}
+            WHERE 1=1
+        `;
+        const params = [];
+        
+        if (startDate) {
+            sql += ' AND p.launched_at >= ?';
+            params.push(startDate);
+        }
+        
+        if (endDate) {
+            sql += ' AND p.launched_at <= ?';
+            params.push(endDate);
+        }
+        
+        if (companyId) {
+            sql += ' AND p.company_id = ?';
+            params.push(companyId);
+        }
+        
+        if (classId) {
+            sql += ' AND c.class_id = ?';
+            params.push(classId);
+        }
+        
+        sql += ' ORDER BY p.launched_at DESC';
+        
+        const products = await Mysql.query(sql, params);
+        
+        return products.map(product => ({
+            ...product,
+            price: parseFloat(product.price) || 0,
+            sales_count: parseInt(product.sales_count) || 0,
+            total_revenue: parseFloat(product.total_revenue) || 0
+        }));
+    }
+
     async insert() {
         // Generate UUID if not provided
         if (!this.id) {

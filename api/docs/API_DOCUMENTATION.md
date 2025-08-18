@@ -843,6 +843,8 @@ GET /classes?include_students=true
 - `company_id` (optional): Filter by company ID
 - `class_id` (optional): Filter by class ID
 - `include_details` (optional): `true` to include company and sales stats
+- `start_date` (optional): Filter products launched on or after this date (ISO 8601 format)
+- `end_date` (optional): Filter products launched on or before this date (ISO 8601 format)
 
 ### Response
 ```json
@@ -863,6 +865,36 @@ GET /classes?include_students=true
   ]
 }
 ```
+
+### Example Requests
+```bash
+# Get all products
+GET /products
+
+# Get products for a specific company
+GET /products?company_id=550e8400-e29b-41d4-a716-446655440000
+
+# Get products for a specific class
+GET /products?class_id=550e8400-e29b-41d4-a716-446655440000
+
+# Get products launched after a specific date
+GET /products?start_date=2025-01-01
+
+# Get products launched within a date range
+GET /products?start_date=2025-01-01&end_date=2025-12-31
+
+# Get products for a company within a date range with details
+GET /products?company_id=550e8400-e29b-41d4-a716-446655440000&start_date=2025-01-01&end_date=2025-12-31&include_details=true
+
+# Get products for a class launched on a specific day
+GET /products?class_id=550e8400-e29b-41d4-a716-446655440000&start_date=2025-08-17T00:00:00Z&end_date=2025-08-17T23:59:59Z
+```
+
+### Notes
+- Date parameters accept ISO 8601 formatted strings (e.g., `2025-08-17` or `2025-08-17T10:00:00Z`)
+- Date filtering uses the `launched_at` timestamp from the products table
+- Date filtering can be combined with company and class filtering for precise queries
+- Results are ordered by launch date (most recent first) when date filtering is applied
 
 ## Get Product by ID
 

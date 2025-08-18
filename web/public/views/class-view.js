@@ -21,7 +21,10 @@ export default class ClassView {
         document.querySelector('#add-student-btn')?.addEventListener('click', async () => await this.showAddStudentModal());
         document.querySelector('#class-bulk-action-btn')?.addEventListener('click', async () => await this.showClassBulkActionModal());
 
-        document.addEventListener('studentBalanceUpdated', async () => await this.renderClassList());
+        document.addEventListener('studentBalanceUpdated', () => this.renderClassList());
+        document.addEventListener('classSelectsUpdated', () => {
+            this.updateClassSelects();
+        });
 
         return this;
     }
@@ -57,7 +60,7 @@ export default class ClassView {
         const classesList = document.querySelector('#classes-list');
         classesList.innerHTML = '';
         
-        const classes = await this.classManager.getAllClasses();
+        const classes = await this.classManager.getAllClasses(true);
         
         if (classes.length === 0) {
             const emptyMessage = document.createElement('p');
@@ -67,10 +70,16 @@ export default class ClassView {
             return;
         }
         
+        // Sort classes alphabetically by name
+        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        
         classes.forEach(classObj => {
             const classId = classObj.id;
             const className = classObj.name;
             const students = classObj.students || [];
+            
+            // Sort students alphabetically by name
+            students.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
             
             const classCard = document.createElement('div');
             classCard.className = 'card';
@@ -210,6 +219,7 @@ export default class ClassView {
                         await this.classManager.deleteClass(classId);
                         await this.renderClassList();
                         document.dispatchEvent(new CustomEvent('classDeleted', { detail: { classId, className } }));
+                        document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
                         Toast.show({ message: `Turma "${className}" excluída com sucesso.`, type: 'success' });
                     }
                 });
@@ -602,7 +612,6 @@ export default class ClassView {
                     Toast.show({ message: failMessage, type: 'warning' });
                 }
                 
-                await this.renderClassList();
                 return true;
             }
         });
@@ -613,6 +622,9 @@ export default class ClassView {
      */
     async updateClassSelects() {
         const classes = await this.classManager.getAllClasses();
+        
+        // Sort classes alphabetically by name
+        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
         
         // Update class select
         // Store the current selection
@@ -637,9 +649,6 @@ export default class ClassView {
         const classExists = classes.some(c => c.id === currentSelection);
         if (classExists) {
             classSelect.value = currentSelection;
-        }
-        
-        // Notify other components that class list has changed
-        document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
+        }        
     }
 }

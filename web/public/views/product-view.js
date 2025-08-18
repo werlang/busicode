@@ -23,9 +23,6 @@ export default class ProductView {
     async initialize() {
         this.setupEventListeners();
         this.restoreProductFilters();
-        await this.updateClassFilter();
-        await this.updateCompanyDropdown();
-        await this.renderLaunchedProducts();
         return this;
     }
 
@@ -57,7 +54,7 @@ export default class ProductView {
         }
 
         // Listen for class selection changes
-        document.addEventListener('classSelectsUpdated', async () => {
+        document.addEventListener('companyUpdate', async () => {
             await this.updateClassFilter();
             await this.updateCompanyDropdown();
             await this.renderLaunchedProducts();
@@ -71,8 +68,7 @@ export default class ProductView {
                 const navData = this.navigationStorage.loadData() || {};
                 navData.productClassFilter = productFilterSelect.value;
                 this.navigationStorage.saveData(navData);
-                await this.updateCompanyDropdown();
-                await this.renderLaunchedProducts();
+                document.dispatchEvent(new CustomEvent('companyUpdate'));
             });
         }
         // Date filter event listeners
@@ -105,32 +101,25 @@ export default class ProductView {
 
         // Listen for company creation event
         document.addEventListener('companyCreated', () => {
-            this.updateClassFilter();
-            this.updateCompanyDropdown();
+            document.dispatchEvent(new CustomEvent('companyUpdate'));
         });
 
         // Listen for company deletion event
         document.addEventListener('companyDeleted', async (event) => {
             const companyId = event.detail.companyId;
             await this.productManager.removeProductsByCompany(companyId);
-            await this.updateClassFilter();
-            await this.updateCompanyDropdown();
-            await this.renderLaunchedProducts();
+            document.dispatchEvent(new CustomEvent('companyUpdate'));
         });
 
         // Listen for class deletion
         document.addEventListener('classDeleted', async (event) => {
-            await this.updateClassFilter();
-            await this.updateCompanyDropdown();
-            await this.renderLaunchedProducts();
+            document.dispatchEvent(new CustomEvent('companyUpdate'));
         });
 
         // Listen for section change events
         document.addEventListener('sectionChanged', async (event) => {
             if (event.detail.sectionId === 'product-launch-section') {
-                await this.updateClassFilter();
-                await this.updateCompanyDropdown();
-                await this.renderLaunchedProducts();
+                document.dispatchEvent(new CustomEvent('companyUpdate'));
             }
         });
     }
@@ -160,6 +149,8 @@ export default class ProductView {
         }));
         const uniqueClasses = classes.filter((value, index, self) => self.map(e => e.id).indexOf(value.id) === index);
 
+        // Sort classes alphabetically by name
+        uniqueClasses.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
 
         // Add all available classes
         uniqueClasses.forEach(classroom => {
@@ -200,11 +191,16 @@ export default class ProductView {
         const companies = selectedClass 
             ? await this.companyManager.getCompaniesForClass(selectedClass)
             : await this.companyManager.getAllCompanies();
-        
-        // Add filtered companies
+
+        // Add company names and sort alphabetically
         for (const company of companies) {
             const classroom = await this.classManager.getClassById(company.classId);
             company.classroomName = classroom.name;
+        }
+        companies.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
+        // Add filtered companies
+        for (const company of companies) {
             const option = document.createElement('option');
             option.value = company.id;
             option.textContent = `${company.name} (${company.classroomName})`;
@@ -228,12 +224,17 @@ export default class ProductView {
         const companyId = companySelect.value;
         const productName = productNameInput.value.trim();
         const productPrice = parseFloat(productPriceInput.value);
-        
+
+        if (!companyId || !productName || isNaN(productPrice)) {
+            Toast.show({ message: 'Por favor, preencha todos os campos corretamente.', type: 'error' });
+            return;
+        }
+
         // Use the product manager to launch the product
         const result = await this.productManager.launchProduct(companyId, productName, productPrice);
         
         if (!result.success) {
-            Toast.show({ message: result.message, type: 'error' });
+            Toast.show({ message: 'Erro ao lançar produto: ' + result.message, type: 'error' });
             return;
         }
         
@@ -242,11 +243,8 @@ export default class ProductView {
         productPriceInput.value = '';
         
         // Update UI
-        await this.updateCompanyDropdown();
-        await this.updateClassFilter();
-        await this.renderLaunchedProducts();
-        
-        Toast.show({ message: result.message, type: 'success' });
+        document.dispatchEvent(new CustomEvent('companyUpdate'));
+        Toast.show({ message: 'Produto lançado com sucesso!', type: 'success' });
     }
 
     /**
@@ -281,7 +279,7 @@ export default class ProductView {
                     return false;
                 }
                 
-                await this.renderLaunchedProducts();
+                document.dispatchEvent(new CustomEvent('companyUpdate'));
                 Toast.show({ message: result.message, type: 'success' });
                 return true;
             }
@@ -311,18 +309,17 @@ export default class ProductView {
         let filteredProducts = selectedClass 
             ? await this.productManager.getLaunchedProductsByClassId(selectedClass)
             : await this.productManager.getAllLaunchedProducts();
-        
+
         // Apply date filtering if either date is set
         if (startDate || endDate) {
             if (startDate && endDate) {
-                filteredProducts = await this.productManager.getProductsByDateRange(startDate, endDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(new Date(startDate), new Date(endDate));
             } else if (startDate) {
-                filteredProducts = await this.productManager.getProductsByDateRange(startDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(new Date(startDate));
             } else if (endDate) {
                 // For end date only, we get all products up to that date
-                filteredProducts = await this.productManager.getProductsByDateRange(new Date(0), endDate);
+                filteredProducts = await this.productManager.getProductsByDateRange(new Date(0), new Date(endDate));
             }
-
             // Re-apply class filter if needed
             if (selectedClass) {
                 const filteredByClass = [];
@@ -356,13 +353,16 @@ export default class ProductView {
             return;
         }
 
-        filteredProducts.forEach(product => {
+        // Sort products alphabetically by name
+        filteredProducts.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
+        filteredProducts.forEach(async product => {
             const row = document.createElement('tr');
             
             // Company name
             const companyCell = document.createElement('td');
             companyCell.setAttribute('data-label', 'Empresa');
-            companyCell.textContent = this.companyManager.getCompany(product.companyId).name;
+            companyCell.textContent = (await this.companyManager.getCompany(product.companyId)).name;
             
             // Product name
             const nameCell = document.createElement('td');
@@ -406,25 +406,23 @@ export default class ProductView {
             addSalesBtn.title = 'Adicionar vendas';
             addSalesBtn.addEventListener('click', async () => {
                 const newSalesValue = parseInt(newSalesInput.value) || 0;
-                
+
+                if (!newSalesValue) {
+                    Toast.show({ message: 'Por favor, insira um valor válido para as vendas.', type: 'error' });
+                    return;
+                }
+
                 // Use the product manager to add sales
                 const result = await this.productManager.addProductSales(product.id, newSalesValue);
                 
                 if (!result.success) {
-                    Toast.show({ message: result.message, type: 'warning' });
+                    Toast.show({ message: 'Erro ao adicionar vendas: ' + result.message, type: 'error' });
                     return;
                 }
                 
                 // Notify company manager about the sales
-                document.dispatchEvent(new CustomEvent('productSalesUpdated', {
-                    detail: {
-                        productId: result.product.id,
-                        productName: result.product.name,
-                        sales: result.salesCount,
-                        price: result.price,
-                        companyId: result.companyId,
-                    }
-                }));
+                document.dispatchEvent(new CustomEvent('companyUpdate'));
+                document.dispatchEvent(new CustomEvent('productSalesUpdated'));
                 
                 // Update UI
                 salesCell.textContent = result.product.sales;
@@ -491,12 +489,10 @@ export default class ProductView {
                 const result = await this.productManager.removeProduct(productId);
                 
                 if (result.success) {
-                    await this.updateCompanyDropdown();
-                    await this.updateClassFilter();
-                    await this.renderLaunchedProducts();
-                    Toast.show({ message: result.message, type: 'success' });
+                    document.dispatchEvent(new CustomEvent('companyUpdate'));
+                    Toast.show({ message: 'Produto removido com sucesso!', type: 'success' });
                 } else {
-                    Toast.show({ message: result.message, type: 'error' });
+                    Toast.show({ message: 'Erro ao remover produto: ' + result.message, type: 'error' });
                 }
             }
         });
