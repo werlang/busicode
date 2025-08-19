@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Company from '../model/company.js';
 import Student from '../model/student.js';
+import { authenticateToken } from '../middleware/auth.js';
 import CustomError from '../helpers/error.js';
 
 const router = Router();
@@ -56,7 +57,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create new company
-router.post('/', async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
     try {
         const { name, classId, memberIds, memberContributions } = req.body;
         
@@ -111,7 +112,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Update company
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const { name } = req.body;
@@ -147,7 +148,7 @@ router.get('/:id/members', async (req, res, next) => {
 });
 
 // Add member to company
-router.post('/:id/members', async (req, res, next) => {
+router.post('/:id/members', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const { studentId, contribution } = req.body;
@@ -171,7 +172,7 @@ router.post('/:id/members', async (req, res, next) => {
 });
 
 // Remove member from company
-router.delete('/:id/members/:studentId', async (req, res, next) => {
+router.delete('/:id/members/:studentId', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const success = await company.removeMember(req.params.studentId);
@@ -207,8 +208,8 @@ router.get('/:id/expenses', async (req, res, next) => {
     }
 });
 
-// Add expense
-router.post('/:id/expenses', async (req, res, next) => {
+// Add company expense
+router.post('/:id/expenses', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const { description, amount } = req.body;
@@ -253,7 +254,7 @@ router.get('/:id/revenues', async (req, res, next) => {
 });
 
 // Add revenue
-router.post('/:id/revenues', async (req, res, next) => {
+router.post('/:id/revenues', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const { description, amount } = req.body;
@@ -293,8 +294,8 @@ router.get('/:id/financial-summary', async (req, res, next) => {
     }
 });
 
-// Distribute profits
-router.post('/:id/distribute-profits', async (req, res, next) => {
+// Distribute profits to student
+router.post('/:id/distribute-profits', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         const { studentId, amount, description } = req.body;
@@ -319,7 +320,7 @@ router.post('/:id/distribute-profits', async (req, res, next) => {
 });
 
 // Delete company
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
     try {
         const company = await new Company({ id: req.params.id }).get();
         

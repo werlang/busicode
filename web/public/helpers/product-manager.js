@@ -13,6 +13,20 @@ export default class ProductManager {
         });
         this.companyManager = new CompanyManager();
     }
+    
+    /**
+     * Get the appropriate request instance (authenticated if user is logged in)
+     * @returns {Request} Request instance
+     */
+    getRequest() {
+        // Use global auth manager if available and user is authenticated
+        if (window.authManager && window.authManager.isLoggedIn()) {
+            return window.authManager.getAuthenticatedRequest();
+        }
+        
+        // Fallback to regular request for read operations
+        return this.request;
+    }
 
 
     /**
@@ -21,7 +35,7 @@ export default class ProductManager {
      */
     async getAllLaunchedProducts() {
         try {
-            const {products} = await this.request.get('products');
+            const {products} = await this.getRequest().get('products');
             return products.map(product => new Product({
                 id: product.id,
                 name: product.name,
@@ -44,7 +58,7 @@ export default class ProductManager {
      */
     async getLaunchedProductsByClassId(classId) {
         try {
-            const {products} = await this.request.get(`products`, { class_id: classId });
+            const {products} = await this.getRequest().get(`products`, { class_id: classId });
             return products.map(product => new Product({
                 id: product.id,
                 name: product.name,
@@ -69,7 +83,7 @@ export default class ProductManager {
      */
     async launchProduct(companyId, productName, productPrice) {
         try {
-            const response = await this.request.post('products', {
+            const response = await this.getRequest().post('products', {
                 companyId,
                 name: productName,
                 price: productPrice
@@ -97,7 +111,7 @@ export default class ProductManager {
      */
     async editProductPrice(productId, newPrice) {
         try {
-            const response = await this.request.put(`products/${productId}`, {
+            const response = await this.getRequest().put(`products/${productId}`, {
                 price: newPrice
             });
             
@@ -122,7 +136,7 @@ export default class ProductManager {
      */
     async addProductSales(productId, quantity) {
         try {
-            const response = await this.request.post(`products/${productId}/sales`, {
+            const response = await this.getRequest().post(`products/${productId}/sales`, {
                 quantity: quantity
             });
             
@@ -153,7 +167,7 @@ export default class ProductManager {
      */
     async removeProduct(productId) {
         try {
-            const response = await this.request.delete(`products/${productId}`);
+            const response = await this.getRequest().delete(`products/${productId}`);
             
             return {
                 success: true,
@@ -186,7 +200,7 @@ export default class ProductManager {
                 opt.end_date = end;
             }
 
-            const {products} = await this.request.get('products', opt);
+            const {products} = await this.getRequest().get('products', opt);
             return products;
         } catch (error) {
             console.error('Error getting products by date range:', error);
@@ -220,7 +234,7 @@ export default class ProductManager {
      */
     async getProduct(productId) {
         try {
-            const {product} = await this.request.get(`products/${productId}`);
+            const {product} = await this.getRequest().get(`products/${productId}`);
             return product;
         } catch (error) {
             if (error.status === 404) {
@@ -238,7 +252,7 @@ export default class ProductManager {
      */
     async removeProductsByCompany(companyId) {
         try {
-            const response = await this.request.delete(`products/company/${companyId}`);
+            const response = await this.getRequest().delete(`products/company/${companyId}`);
             return response.deletedCount || 0;
         } catch (error) {
             console.error('Error removing products by company:', error);

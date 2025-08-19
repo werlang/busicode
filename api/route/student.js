@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Student from '../model/student.js';
+import { authenticateToken } from '../middleware/auth.js';
 import CustomError from '../helpers/error.js';
 
 const router = Router();
@@ -39,7 +40,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create new student
-router.post('/', async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
     try {
         const { name, classId, initialBalance } = req.body;
         
@@ -70,7 +71,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Update student
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authenticateToken, async (req, res, next) => {
     try {
         const student = await new Student({ id: req.params.id }).get();
         const { name, initialBalance } = req.body;
@@ -99,7 +100,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // Update student balance
-router.put('/:id/balance', async (req, res, next) => {
+router.put('/:id/balance', authenticateToken, async (req, res, next) => {
     try {
         const student = await new Student({ id: req.params.id }).get();
         const { amount, operation } = req.body;
@@ -132,7 +133,7 @@ router.put('/:id/balance', async (req, res, next) => {
 });
 
 // Delete student
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
     try {
         const student = await new Student({ id: req.params.id }).get();
         await student.delete();

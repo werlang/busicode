@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Product from '../model/product.js';
 import Company from '../model/company.js';
+import { authenticateToken } from '../middleware/auth.js';
 import CustomError from '../helpers/error.js';
 
 const router = Router();
@@ -61,7 +62,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Launch new product
-router.post('/', async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
     try {
         const { name, price, companyId } = req.body;
         
@@ -102,7 +103,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Update product
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authenticateToken, async (req, res, next) => {
     try {
         const product = await new Product({ id: req.params.id }).get();
         const { name, price } = req.body;
@@ -132,7 +133,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // Record product sale
-router.post('/:id/sales', async (req, res, next) => {
+router.post('/:id/sales', authenticateToken, async (req, res, next) => {
     try {
         const product = await new Product({ id: req.params.id }).get();
         const { quantity, unitPrice } = req.body;
@@ -191,7 +192,7 @@ router.get('/:id/sales/stats', async (req, res, next) => {
 });
 
 // Update product price
-router.put('/:id/price', async (req, res, next) => {
+router.put('/:id/price', authenticateToken, async (req, res, next) => {
     try {
         const product = await new Product({ id: req.params.id }).get();
         const { price } = req.body;
@@ -212,7 +213,7 @@ router.put('/:id/price', async (req, res, next) => {
 });
 
 // Delete product
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
     try {
         const product = await new Product({ id: req.params.id }).get();
         

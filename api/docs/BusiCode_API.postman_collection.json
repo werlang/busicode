@@ -12,6 +12,12 @@
       "type": "string"
     },
     {
+      "key": "authToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT token for authentication"
+    },
+    {
       "key": "classId",
       "value": "",
       "type": "string"
@@ -45,6 +51,142 @@
               "raw": "{{baseUrl}}/health",
               "host": ["{{baseUrl}}"],
               "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "Authentication endpoints for admin login/logout and token management",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.to.have.status(200)) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "    console.log('Auth token saved:', jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Authentication Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Admin User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newadmin\",\n  \"password\": \"securepassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/create-admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "create-admin"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Admin Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/admins",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "admins"]
             }
           },
           "response": []
@@ -93,18 +235,23 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    const response = pm.response.json();",
-                  "    pm.collectionVariables.set('classId', response.class.id);",
-                  "    console.log('Class ID saved:', response.class.id);",
+                  "if (pm.response.to.have.status(201)) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('classId', jsonData.class_id);",
+                  "    console.log('Class ID saved:', jsonData.class_id);",
                   "}"
-                ]
+                ],
+                "type": "text/javascript"
               }
             }
           ],
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -146,6 +293,10 @@
           "request": {
             "method": "PUT",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -208,6 +359,10 @@
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -295,6 +450,10 @@
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -330,6 +489,10 @@
             "method": "PUT",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -351,6 +514,10 @@
           "request": {
             "method": "PUT",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -473,6 +640,10 @@
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -514,6 +685,10 @@
             "method": "PUT",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -549,6 +724,10 @@
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -570,6 +749,10 @@
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -605,6 +788,10 @@
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -887,6 +1074,10 @@
             "method": "POST",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -927,6 +1118,10 @@
           "request": {
             "method": "PUT",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -1020,6 +1215,10 @@
             "method": "PUT",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -1045,7 +1244,12 @@
           "name": "Delete Product",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/products/{{productId}}",
               "host": ["{{baseUrl}}"],
@@ -1058,7 +1262,12 @@
           "name": "Remove Member from Company",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/companies/{{companyId}}/members/{{studentId}}",
               "host": ["{{baseUrl}}"],
@@ -1071,7 +1280,12 @@
           "name": "Delete Company",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/companies/{{companyId}}",
               "host": ["{{baseUrl}}"],
@@ -1084,7 +1298,12 @@
           "name": "Delete Student",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/students/{{studentId}}",
               "host": ["{{baseUrl}}"],
@@ -1097,7 +1316,12 @@
           "name": "Delete Class",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/classes/{{classId}}",
               "host": ["{{baseUrl}}"],

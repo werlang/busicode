@@ -4,6 +4,127 @@
  */
 export default class Modal {
     /**
+     * Constructor for instance-based modal
+     * @param {Object} options - Modal options
+     * @param {string} options.id - Modal ID
+     * @param {string} options.title - Modal title
+     * @param {string} options.content - Modal content HTML
+     * @param {boolean} options.showCloseButton - Whether to show close button
+     * @param {string} options.className - Additional CSS class
+     * @param {Function} options.onShown - Callback when modal is fully shown
+     */
+    constructor(options = {}) {
+        this.options = options;
+        this.modalOverlay = null;
+        this.modalContent = null;
+        this.isVisible = false;
+    }
+
+    /**
+     * Show the modal instance
+     */
+    show() {
+        if (this.isVisible) return;
+
+        const {
+            id = 'modal',
+            title = '',
+            content = '',
+            showCloseButton = true,
+            className = '',
+            onShown = null
+        } = this.options;
+
+        // Create modal elements
+        this.modalOverlay = document.createElement('div');
+        this.modalOverlay.className = `modal-overlay ${className}`;
+        this.modalOverlay.id = id;
+
+        this.modalContent = document.createElement('div');
+        this.modalContent.className = 'modal-content';
+
+        // Add title if provided
+        if (title) {
+            const titleElement = document.createElement('h3');
+            titleElement.className = 'modal-title';
+            titleElement.textContent = title;
+            this.modalContent.appendChild(titleElement);
+        }
+
+        // Add content
+        if (content) {
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'modal-body';
+            contentDiv.innerHTML = content;
+            this.modalContent.appendChild(contentDiv);
+        }
+
+        // Add close button if requested
+        if (showCloseButton) {
+            const closeButton = document.createElement('button');
+            closeButton.className = 'modal-close';
+            closeButton.innerHTML = '×';
+            closeButton.addEventListener('click', () => this.hide());
+            this.modalContent.appendChild(closeButton);
+        }
+
+        this.modalOverlay.appendChild(this.modalContent);
+        document.body.appendChild(this.modalOverlay);
+
+        // Handle escape key and overlay click
+        this.modalOverlay.addEventListener('click', (e) => {
+            if (e.target === this.modalOverlay) {
+                this.hide();
+            }
+        });
+
+        document.addEventListener('keydown', this.handleEscapeKey.bind(this));
+
+        this.isVisible = true;
+
+        // Animate in
+        requestAnimationFrame(() => {
+            this.modalOverlay.classList.add('modal-visible');
+            this.modalContent.classList.add('modal-content-visible');
+            
+            // Call onShown callback after animation frame
+            if (onShown && typeof onShown === 'function') {
+                onShown();
+            }
+        });
+    }
+
+    /**
+     * Hide the modal instance
+     */
+    hide() {
+        if (!this.isVisible || !this.modalOverlay) return;
+
+        this.modalOverlay.classList.remove('modal-visible');
+        this.modalOverlay.classList.add('modal-exit');
+        
+        setTimeout(() => {
+            if (this.modalOverlay && this.modalOverlay.parentNode) {
+                document.body.removeChild(this.modalOverlay);
+            }
+            this.modalOverlay = null;
+            this.modalContent = null;
+            this.isVisible = false;
+        }, 300);
+
+        document.removeEventListener('keydown', this.handleEscapeKey.bind(this));
+    }
+
+    /**
+     * Handle escape key press
+     */
+    handleEscapeKey(e) {
+        if (e.key === 'Escape' && this.isVisible) {
+            this.hide();
+        }
+    }
+
+    /**
      * Show a modal dialog
      * @param {Object} options - Modal options
      * @param {string} options.title - Modal title

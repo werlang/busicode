@@ -11,6 +11,20 @@ export default class ClassManager {
             url: 'http://localhost:3000',
         });
     }
+    
+    /**
+     * Get the appropriate request instance (authenticated if user is logged in)
+     * @returns {Request} Request instance
+     */
+    getRequest() {
+        // Use global auth manager if available and user is authenticated
+        if (window.authManager && window.authManager.isLoggedIn()) {
+            return window.authManager.getAuthenticatedRequest();
+        }
+        
+        // Fallback to regular request for read operations
+        return this.request;
+    }
 
     /**
      * Create a new class
@@ -19,7 +33,7 @@ export default class ClassManager {
      */
     async createClass(className) {
         try {
-            const response = await this.request.post('classes', { name: className });
+            const response = await this.getRequest().post('classes', { name: className });
             return response;
         } catch (error) {
             if (error.status === 400) {
@@ -37,7 +51,7 @@ export default class ClassManager {
      */
     async renameClass(classId, newName) {
         try {
-            await this.request.put(`classes/${classId}`, { name: newName });
+            await this.getRequest().put(`classes/${classId}`, { name: newName });
             
             // Dispatch event to notify other components
             document.dispatchEvent(new CustomEvent('classRenamed', { 
@@ -62,8 +76,10 @@ export default class ClassManager {
      */
     async getAllClasses(includeStudents = false) {
         try {
-            const {classes} = await this.request.get('classes', { include_students: includeStudents });
-            return classes;
+            const queryParams = includeStudents ? { include_students: 'true' } : {};
+            const response = await this.getRequest().get('classes', queryParams);
+            // Extract classes array from the response object
+            return response.classes || [];
         } catch (error) {
             console.error('Error getting all classes:', error);
             return [];
@@ -91,7 +107,7 @@ export default class ClassManager {
      */
     async getClassById(classId, includeStudents = false) {
         try {
-            const { class: classObj } = await this.request.get(`classes/${classId}`, {
+            const { class: classObj } = await this.getRequest().get(`classes/${classId}`, {
                 include_details: true,
                 include_students: includeStudents
             });
@@ -163,7 +179,7 @@ export default class ClassManager {
             
             for (const name of names) {
                 try {
-                    await this.request.post('students', {
+                    await this.getRequest().post('students', {
                         name,
                         initialBalance,
                         classId
@@ -190,7 +206,7 @@ export default class ClassManager {
      */
     async addStudent(classId, studentName, initialBalance = 0) {
         try {
-            const studentData = await this.request.post('students', {
+            const studentData = await this.getRequest().post('students', {
                 name: studentName,
                 initialBalance,
                 classId
@@ -216,7 +232,7 @@ export default class ClassManager {
      */
     async removeStudent(classId, studentId) {
         try {
-            await this.request.delete(`students/${studentId}`);
+            await this.getRequest().delete(`students/${studentId}`);
             return true;
         } catch (error) {
             if (error.status === 404) {
@@ -233,7 +249,7 @@ export default class ClassManager {
      */
     async deleteClass(classId) {
         try {
-            await this.request.delete(`classes/${classId}`);
+            await this.getRequest().delete(`classes/${classId}`);
             return true;
         } catch (error) {
             if (error.status === 404) {
@@ -254,7 +270,7 @@ export default class ClassManager {
     async modifyStudentBalance(classId, studentId, amount, action) {
         try {
             const operation = action === 'add' ? 'add' : 'deduct';
-            await this.request.put(`students/${studentId}/balance`, { amount, operation });
+            await this.getRequest().put(`students/${studentId}/balance`, { amount, operation });
             return true;
         } catch (error) {
             console.error('Error modifying student balance:', error);

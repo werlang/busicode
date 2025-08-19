@@ -10,11 +10,12 @@ import Modal from '../components/modal.js';
 import Storage from '../helpers/storage.js';
 
 export default class ProductView {
-    constructor() {
+    constructor(isAuthenticated = false) {
         this.productManager = new ProductManager();
         this.companyManager = new CompanyManager();
         this.classManager = new ClassManager();
-        this.navigationStorage = new Storage('busicode_navigation'); // For remembering filters
+        this.navigationStorage = new Storage('busicode_navigation'); // For remembering filter
+        this.isReadOnlyMode = !isAuthenticated; // Set based on initial auth state
     }
 
     /**
@@ -23,7 +24,51 @@ export default class ProductView {
     async initialize() {
         this.setupEventListeners();
         this.restoreProductFilters();
+        
+        // Listen for read-only mode changes
+        document.addEventListener('readOnlyModeChanged', async (event) => {
+            this.isReadOnlyMode = event.detail.isReadOnly;
+            await this.handleReadOnlyMode();
+        });
+        
         return this;
+    }
+
+    /**
+     * Handle read-only mode changes for dynamically generated elements
+     */
+    async handleReadOnlyMode() {
+        // Update table headers based on read-only state
+        this.updateTableHeaders();
+        // Re-render the product list to apply read-only state to dynamic buttons
+        await this.renderLaunchedProducts();
+    }
+
+    /**
+     * Update table headers based on authentication state
+     */
+    updateTableHeaders() {
+        const table = document.querySelector('#launch-products-table');
+        if (!table) return;
+
+        const headerRow = table.querySelector('thead tr');
+        if (!headerRow) return;
+
+        const headers = headerRow.querySelectorAll('th');
+        
+        // Hide/show "Nova Venda" and "Ações" columns based on read-only mode
+        if (headers.length >= 7) {
+            const newSaleHeader = headers[5]; // "Nova Venda"
+            const actionsHeader = headers[6]; // "Ações"
+            
+            if (this.isReadOnlyMode) {
+                newSaleHeader.style.display = 'none';
+                actionsHeader.style.display = 'none';
+            } else {
+                newSaleHeader.style.display = '';
+                actionsHeader.style.display = '';
+            }
+        }
     }
 
     restoreProductFilters() {
@@ -138,34 +183,49 @@ export default class ProductView {
         }
         
         // Get unique class names from companies that have products
-        const products = await this.productManager.getAllLaunchedProducts();
-        const companies = await Promise.all(products.map(product => this.companyManager.getCompany(product.companyId)));
-        const classes = await Promise.all(companies.map(async company => {
-            const classroom = await this.classManager.getClassById(company.classId);
-            return {
-                id: classroom.id,
-                name: classroom.name,
+        try {
+            const products = await this.productManager.getAllLaunchedProducts();
+            const productsArray = Array.isArray(products) ? products : [];
+            
+            const companies = await Promise.all(productsArray.map(product => this.companyManager.getCompany(product.companyId)));
+            const companiesArray = companies.filter(company => company && company.classId);
+            
+            const classes = await Promise.all(companiesArray.map(async company => {
+                try {
+                    const classroom = await this.classManager.getClassById(company.classId);
+                    return classroom ? {
+                        id: classroom.id,
+                        name: classroom.name,
+                    } : null;
+                } catch (error) {
+                    console.warn('Error getting classroom:', error);
+                    return null;
+                }
+            }));
+            
+            const validClasses = classes.filter(cls => cls !== null);
+            const uniqueClasses = validClasses.filter((value, index, self) => self.map(e => e.id).indexOf(value.id) === index);
+
+            // Sort classes alphabetically by name
+            uniqueClasses.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+
+            // Add all available classes
+            uniqueClasses.forEach(classroom => {
+                const option = document.createElement('option');
+                option.value = classroom.id;
+                option.textContent = classroom.name;
+                filterSelect.appendChild(option);
+            });
+            
+            // Restore selection if possible (prefer navigation storage)
+            const navData = this.navigationStorage.loadData() || {};
+            if (navData.productClassFilter && [...filterSelect.options].some(opt => opt.value === navData.productClassFilter)) {
+                filterSelect.value = navData.productClassFilter;
+            } else if (currentSelection && [...filterSelect.options].some(opt => opt.value === currentSelection)) {
+                filterSelect.value = currentSelection;
             }
-        }));
-        const uniqueClasses = classes.filter((value, index, self) => self.map(e => e.id).indexOf(value.id) === index);
-
-        // Sort classes alphabetically by name
-        uniqueClasses.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
-
-        // Add all available classes
-        uniqueClasses.forEach(classroom => {
-            const option = document.createElement('option');
-            option.value = classroom.id;
-            option.textContent = classroom.name;
-            filterSelect.appendChild(option);
-        });
-        
-        // Restore selection if possible (prefer navigation storage)
-        const navData = this.navigationStorage.loadData() || {};
-        if (navData.productClassFilter && [...filterSelect.options].some(opt => opt.value === navData.productClassFilter)) {
-            filterSelect.value = navData.productClassFilter;
-        } else if (currentSelection && [...filterSelect.options].some(opt => opt.value === currentSelection)) {
-            filterSelect.value = currentSelection;
+        } catch (error) {
+            console.error('Error updating class filter:', error);
         }
     }
 
@@ -195,7 +255,7 @@ export default class ProductView {
         // Add company names and sort alphabetically
         for (const company of companies) {
             const classroom = await this.classManager.getClassById(company.classId);
-            company.classroomName = classroom.name;
+            company.classroomName = classroom?.name || 'Unknown Class';
         }
         companies.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
 
@@ -293,6 +353,9 @@ export default class ProductView {
         const launchProductsBody = document.querySelector('#launch-products-body');
         if (!launchProductsBody) return;
         
+        // Update table headers based on read-only mode
+        this.updateTableHeaders();
+        
         launchProductsBody.innerHTML = '';
         
         // Get selected class filter
@@ -384,75 +447,85 @@ export default class ProductView {
             totalCell.setAttribute('data-label', 'Receita Total');
             totalCell.textContent = `R$ ${product.total.toFixed(2)}`;
             
-            // New Sales Input
+            // New Sales Input - only render if not in read-only mode
             const newSalesCell = document.createElement('td');
             newSalesCell.setAttribute('data-label', 'Nova Venda');
             
-            const salesInputContainer = document.createElement('div');
-            salesInputContainer.className = 'sales-input-container';
-            
-            // Create input for new sales
-            const newSalesInput = document.createElement('input');
-            newSalesInput.type = 'number';
-            newSalesInput.min = '0';
-            newSalesInput.className = 'new-sales-input';
-            newSalesInput.placeholder = '0';
-            newSalesInput.value = '';
-            
-            // Create add button
-            const addSalesBtn = document.createElement('button');
-            addSalesBtn.textContent = '+';
-            addSalesBtn.className = 'add-sales-btn';
-            addSalesBtn.title = 'Adicionar vendas';
-            addSalesBtn.addEventListener('click', async () => {
-                const newSalesValue = parseInt(newSalesInput.value) || 0;
-
-                if (!newSalesValue) {
-                    Toast.show({ message: 'Por favor, insira um valor válido para as vendas.', type: 'error' });
-                    return;
-                }
-
-                // Use the product manager to add sales
-                const result = await this.productManager.addProductSales(product.id, newSalesValue);
+            if (!this.isReadOnlyMode) {
+                const salesInputContainer = document.createElement('div');
+                salesInputContainer.className = 'sales-input-container';
                 
-                if (!result.success) {
-                    Toast.show({ message: 'Erro ao adicionar vendas: ' + result.message, type: 'error' });
-                    return;
-                }
-                
-                // Notify company manager about the sales
-                document.dispatchEvent(new CustomEvent('companyUpdate'));
-                document.dispatchEvent(new CustomEvent('productSalesUpdated'));
-                
-                // Update UI
-                salesCell.textContent = result.product.sales;
-                totalCell.textContent = `R$ ${result.product.total.toFixed(2)}`;
+                // Create input for new sales
+                const newSalesInput = document.createElement('input');
+                newSalesInput.type = 'number';
+                newSalesInput.min = '0';
+                newSalesInput.className = 'new-sales-input';
+                newSalesInput.placeholder = '0';
                 newSalesInput.value = '';
                 
-                Toast.show({ message: result.message, type: 'success' });
-            });
+                // Create add button
+                const addSalesBtn = document.createElement('button');
+                addSalesBtn.textContent = '+';
+                addSalesBtn.className = 'add-sales-btn';
+                addSalesBtn.title = 'Adicionar vendas';
+                addSalesBtn.addEventListener('click', async () => {
+                    const newSalesValue = parseInt(newSalesInput.value) || 0;
+
+                    if (!newSalesValue) {
+                        Toast.show({ message: 'Por favor, insira um valor válido para as vendas.', type: 'error' });
+                        return;
+                    }
+
+                    // Use the product manager to add sales
+                    const result = await this.productManager.addProductSales(product.id, newSalesValue);
+                    
+                    if (!result.success) {
+                        Toast.show({ message: 'Erro ao adicionar vendas: ' + result.message, type: 'error' });
+                        return;
+                    }
+                    
+                    // Notify company manager about the sales
+                    document.dispatchEvent(new CustomEvent('companyUpdate'));
+                    document.dispatchEvent(new CustomEvent('productSalesUpdated'));
+                    
+                    // Update UI
+                    salesCell.textContent = result.product.sales;
+                    totalCell.textContent = `R$ ${result.product.total.toFixed(2)}`;
+                    newSalesInput.value = '';
+                    
+                    Toast.show({ message: result.message, type: 'success' });
+                });
+                
+                salesInputContainer.appendChild(newSalesInput);
+                salesInputContainer.appendChild(addSalesBtn);
+                newSalesCell.appendChild(salesInputContainer);
+            } else {
+                newSalesCell.style.display = 'none'; // Hide entire column in read-only
+            }
             
-            salesInputContainer.appendChild(newSalesInput);
-            salesInputContainer.appendChild(addSalesBtn);
-            newSalesCell.appendChild(salesInputContainer);
-            
-            // Actions
+            // Actions - only render if not in read-only mode
             const actionsCell = document.createElement('td');
-            actionsCell.className = 'action-buttons';
+            actionsCell.setAttribute('data-label', 'Ações');
             
-            // Edit price button
-            const editPriceBtn = document.createElement('button');
-            editPriceBtn.textContent = 'Editar Preço';
-            editPriceBtn.className = 'edit-product-btn';
-            editPriceBtn.addEventListener('click', async () => await this.editProductPrice(product.id));
-            actionsCell.appendChild(editPriceBtn);
-            
-            // Remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.textContent = 'Remover';
-            removeBtn.className = 'remove-btn';
-            removeBtn.addEventListener('click', async () => await this.showRemoveProductModal(product.id));
-            actionsCell.appendChild(removeBtn);
+            if (!this.isReadOnlyMode) {
+                actionsCell.className = 'action-buttons';
+                
+                // Edit price button
+                const editPriceBtn = document.createElement('button');
+                editPriceBtn.textContent = 'Editar Preço';
+                editPriceBtn.className = 'edit-product-btn';
+                editPriceBtn.addEventListener('click', async () => await this.editProductPrice(product.id));
+                actionsCell.appendChild(editPriceBtn);
+                
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remover';
+                removeBtn.className = 'remove-btn';
+                removeBtn.addEventListener('click', async () => await this.showRemoveProductModal(product.id));
+                actionsCell.appendChild(removeBtn);
+            } else {
+                actionsCell.style.display = 'none'; // Hide entire column in read-only
+            }
             
             // Add cells to row
             row.appendChild(companyCell);

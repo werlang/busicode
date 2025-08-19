@@ -1,10 +1,22 @@
--- Active: 1719023526548@@localhost@3306@busicode
 -- BusiCode Database Schema
 -- This schema supports the educational business simulation application
+-- This file is automatically executed when MySQL container starts for the first time
 
--- Create database (run this separately if needed)
--- CREATE DATABASE busicode_db;
--- USE busicode_db;
+-- Admin users table (for authentication)
+CREATE TABLE admin_users (
+    id VARCHAR(36) PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    INDEX idx_admin_users_username (username)
+);
+
+-- Insert default admin user (username: admin, password: admin123)
+-- Password hash is bcrypt of 'admin123' with salt rounds 10
+INSERT INTO admin_users (id, username, password_hash) VALUES 
+('admin-1', 'admin', '$2b$10$/A1majQZsUVesr42SJOcseIVkLVEkRo3/GT8ocz6bjbb4W.ujWG6.');
 
 -- Classes table (classrooms)
 CREATE TABLE classes (

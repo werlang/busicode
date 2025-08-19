@@ -10,15 +10,21 @@
 <body>
     <header class="main-header">
         <div class="header-content">
-            <h1>BusiCode</h1>
-            <p>Gerenciador de atividades para professores</p>
+            <div class="header-title">
+                <h1>BusiCode</h1>
+                <p>Gerenciador de atividades para professores</p>
+            </div>
+            
+            <div class="header-auth-controls">
+                <button id="login-btn" class="auth-button login-btn">Entrar</button>
+                <button id="logout-btn" class="auth-button logout-btn" style="display: none;">Sair</button>
+            </div>
         </div>
         <nav class="main-nav">
             <ul>
                 <li><a href="#" class="nav-link active" data-section="setup-section">Turmas e Alunos</a></li>
                 <li><a href="#" class="nav-link" data-section="company-section">Gerenciar Empresas</a></li>
                 <li><a href="#" class="nav-link" data-section="product-launch-section">Lançamento de Produtos</a></li>
-                <li><a href="#" class="nav-link" data-section="settings-section">Configurações</a></li>
             </ul>
         </nav>
     </header>
@@ -37,14 +43,14 @@
                 </div>
             </div>
 
-            <div class="container">
+            <div class="container auth-required-section">
                 <div class="card">
                     <h3>Criar Nova Turma</h3>
                     <div class="form-group">
                         <label for="class-name">Nome da Turma:</label>
                         <input type="text" id="class-name" placeholder="Ex: Turma A 2025">
                     </div>
-                    <button id="create-class-btn">Criar Turma</button>
+                    <button id="create-class-btn" data-auth-required="true">Criar Turma</button>
                 </div>
 
                 <div class="card">
@@ -63,25 +69,10 @@
                         <label for="student-initial-balance">Saldo Inicial dos Alunos (R$):</label>
                         <input type="number" id="student-initial-balance" placeholder="Ex: 100" value="0" min="0">
                     </div>
-                    <button id="import-students-btn">Importar Alunos</button>
+                    <button id="import-students-btn" data-auth-required="true">Importar Alunos</button>
                 </div>
             </div>
 
-            </div>
-        </section>
-
-        <!-- Seção de Configurações -->
-        <section class="app-section" id="settings-section">
-            <div class="section-header">
-                <h2>Configurações</h2>
-            </div>
-
-            <div class="container">
-                <div class="card">
-                    <h3>Informações do Sistema</h3>
-                    <p>BusiCode - Sistema de Gerenciamento de Atividades Educacionais</p>
-                    <p>Para backup e restauração de dados, utilize as ferramentas de dump do MySQL.</p>
-                </div>
             </div>
         </section>
 
@@ -103,12 +94,12 @@
                     <h3>Filtrar Empresas</h3>
                     <div class="form-group">
                         <label for="company-filter-select">Filtrar por Turma:</label>
-                        <select id="company-filter-select">
+                        <select id="company-filter-select" data-readonly-allow>
                             <option value="">Todas as empresas</option>
                         </select>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card auth-required-section">
                     <h3>Criar Nova Empresa</h3>
                     <div class="form-group">
                         <label for="company-class-select">Selecionar Turma:</label>
@@ -130,7 +121,7 @@
                         <!-- Student contribution fields will be added here dynamically -->
                         <p class="contribution-info">Selecione os alunos para definir as contribuições individuais</p>
                     </div>
-                    <button id="create-company-btn">Criar Empresa</button>
+                    <button id="create-company-btn" data-auth-required="true">Criar Empresa</button>
                 </div>
             </div>
         </section>
@@ -170,7 +161,7 @@
                     <h3>Filtrar Produtos</h3>
                     <div class="form-group">
                         <label for="product-filter-select">Filtrar por Turma:</label>
-                        <select id="product-filter-select">
+                        <select id="product-filter-select" data-readonly-allow>
                             <option value="">Todas as turmas</option>
                         </select>
                     </div>
@@ -179,19 +170,19 @@
                         <div class="date-filter-container">
                             <div class="date-input-group">
                                 <label for="product-start-date">De:</label>
-                                <input type="date" id="product-start-date">
+                                <input type="date" id="product-start-date" data-readonly-allow>
                             </div>
                             <div class="date-input-group">
                                 <label for="product-end-date">Até:</label>
-                                <input type="date" id="product-end-date">
+                                <input type="date" id="product-end-date" data-readonly-allow>
                             </div>
-                            <button id="apply-date-filter" class="btn-small">Aplicar</button>
-                            <button id="clear-date-filter" class="btn-small btn-secondary">Limpar</button>
+                            <button id="apply-date-filter" class="btn-small" data-readonly-allow>Aplicar</button>
+                            <button id="clear-date-filter" class="btn-small btn-secondary" data-readonly-allow>Limpar</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card auth-required-section">
                     <h3>Lançamento de Novos Produtos</h3>
                     <div class="form-group">
                         <label for="product-company-select">Empresa:</label>
@@ -208,7 +199,7 @@
                         <label for="product-price">Valor do Lançamento (R$):</label>
                         <input type="number" id="product-price" placeholder="Ex: 150" min="0" step="0.01">
                     </div>
-                    <button id="launch-product-btn">Lançar Produto</button>
+                    <button id="launch-product-btn" data-auth-required="true">Lançar Produto</button>
                 </div>
             </div>
 

@@ -3,8 +3,8 @@
  * Handles data operations for companies in the BusiCode application
  */
 import Request from './request.js';
-import Company from '../model/company.js';
 import ClassManager from './class-manager.js';
+import Company from '../model/company.js';
 
 export default class CompanyManager {
     constructor() {
@@ -12,6 +12,20 @@ export default class CompanyManager {
             url: 'http://localhost:3000',
         });
         this.classManager = new ClassManager();
+    }
+    
+    /**
+     * Get the appropriate request instance (authenticated if user is logged in)
+     * @returns {Request} Request instance
+     */
+    getRequest() {
+        // Use global auth manager if available and user is authenticated
+        if (window.authManager && window.authManager.isLoggedIn()) {
+            return window.authManager.getAuthenticatedRequest();
+        }
+        
+        // Fallback to regular request for read operations
+        return this.request;
     }
 
     /**
@@ -24,7 +38,7 @@ export default class CompanyManager {
      */
     async createCompany(companyName, classId, selectedStudentIds, memberContributions) {
         try {
-            const response = await this.request.post('companies', {
+            const response = await this.getRequest().post('companies', {
                 name: companyName,
                 classId,
                 memberIds: selectedStudentIds,
@@ -55,7 +69,7 @@ export default class CompanyManager {
      */
     async getCompany(id) {
         try {
-            const {company} = await this.request.get(`companies/${id}?include_details=true`);
+            const {company} = await this.getRequest().get(`companies/${id}?include_details=true`);
             return company;
         } catch (error) {
             if (error.status === 404) {
@@ -71,7 +85,7 @@ export default class CompanyManager {
      */
     async getAllCompanies() {
         try {
-            const {companies} = await this.request.get('companies');
+            const {companies} = await this.getRequest().get('companies');
             return companies;
         } catch (error) {
             console.error('Error getting all companies:', error);
@@ -86,7 +100,7 @@ export default class CompanyManager {
      */
     async getCompaniesForClass(classId) {
         try {
-            const {companies} = await this.request.get(`companies`, { class_id: classId });
+            const {companies} = await this.getRequest().get(`companies`, { class_id: classId });
             return companies;
         } catch (error) {
             console.error('Error getting companies for class:', error);
@@ -101,7 +115,7 @@ export default class CompanyManager {
      */
     async getCompanyMembers(companyId) {
         try {
-            const {members} = await this.request.get(`companies/${companyId}/members`);
+            const {members} = await this.getRequest().get(`companies/${companyId}/members`);
             return members;
         } catch (error) {
             console.error('Error getting company members:', error);
@@ -117,7 +131,7 @@ export default class CompanyManager {
      */
     async updateCompany(id, updates) {
         try {
-            await this.request.put(`companies/${id}`, updates);
+            await this.getRequest().put(`companies/${id}`, updates);
             return true;
         } catch (error) {
             if (error.status === 404) {
@@ -134,7 +148,7 @@ export default class CompanyManager {
      */
     async deleteCompany(id) {
         try {
-            await this.request.delete(`companies/${id}`);
+            await this.getRequest().delete(`companies/${id}`);
             return true;
         } catch (error) {
             if (error.status === 404) {
@@ -156,7 +170,7 @@ export default class CompanyManager {
         if (!company) return null;
         
         try {
-            const expense = await this.request.post(`companies/${company.id}/expenses`, {
+            const expense = await this.getRequest().post(`companies/${company.id}/expenses`, {
                 description,
                 amount,
             });
@@ -179,7 +193,7 @@ export default class CompanyManager {
         if (!company) return null;
         
         try {
-            const revenue = await this.request.post(`companies/${company.id}/revenues`, {
+            const revenue = await this.getRequest().post(`companies/${company.id}/revenues`, {
                 description,
                 amount,
             });
@@ -228,7 +242,7 @@ export default class CompanyManager {
      */
     async distributeProfits(companyId, studentId, amount, description) {
         try {
-            const response = await this.request.post(`companies/${companyId}/distribute-profits`, {
+            const response = await this.getRequest().post(`companies/${companyId}/distribute-profits`, {
                 studentId,
                 amount,
                 description
@@ -356,7 +370,7 @@ export default class CompanyManager {
      */
     async updateCompanyMembers(companyId, memberIds) {
         try {
-            const response = await this.request.put(`companies/${companyId}/members`, {
+            const response = await this.getRequest().put(`companies/${companyId}/members`, {
                 memberIds,
             });
             
@@ -382,7 +396,7 @@ export default class CompanyManager {
      */
     async addStudentToCompany(studentId, companyId, contribution = 0) {
         try {
-            const response = await this.request.post(`companies/${companyId}/members`, {
+            const response = await this.getRequest().post(`companies/${companyId}/members`, {
                 studentId,
                 contribution
             });
@@ -408,7 +422,7 @@ export default class CompanyManager {
      */
     async removeStudentFromCompany(studentId, companyId) {
         try {
-            const response = await this.request.delete(`companies/${companyId}/members/${studentId}`);
+            const response = await this.getRequest().delete(`companies/${companyId}/members/${studentId}`);
             
             return {
                 success: true,
@@ -429,7 +443,7 @@ export default class CompanyManager {
      */
     async getExpenses(companyId) {
         try {
-            const response = await this.request.get(`companies/${companyId}/expenses`);
+            const response = await this.getRequest().get(`companies/${companyId}/expenses`);
             return response.expenses || [];
         } catch (error) {
             console.error('Error getting company expenses:', error);
@@ -444,7 +458,7 @@ export default class CompanyManager {
      */
     async getRevenues(companyId) {
         try {
-            const response = await this.request.get(`companies/${companyId}/revenues`);
+            const response = await this.getRequest().get(`companies/${companyId}/revenues`);
             return response.revenues || [];
         } catch (error) {
             console.error('Error getting company revenues:', error);

@@ -20,6 +20,10 @@ export default class Request {
         this.headers.set(key, value);
     }
 
+    removeHeader(key) {
+        this.headers.delete(key);
+    }
+
     async get(endpoint, args) {
         return this.request('GET', endpoint, args);
     }

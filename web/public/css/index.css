@@ -17,6 +17,7 @@
 @import 'components/tables.css';
 @import 'components/modal.css';
 @import 'components/toast.css';
+@import 'components/auth.css';
 
 /* Module-specific styles */
 @import 'modules/students.css';

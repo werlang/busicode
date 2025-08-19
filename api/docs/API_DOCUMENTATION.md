@@ -8,7 +8,31 @@ The BusiCode API provides endpoints for managing educational business simulation
 
 ## Authentication
 
-Currently, the API does not require authentication. All endpoints are publicly accessible.
+The BusiCode API uses **JWT (JSON Web Token) authentication** for admin operations. Students can access all read endpoints without authentication, but all write operations require admin authentication.
+
+### Authentication Flow
+
+1. **Login** with admin credentials to receive a JWT token
+2. **Include token** in Authorization header for protected requests: `Authorization: Bearer <token>`
+3. **Token expires** after 24 hours - login again to refresh
+
+### Default Admin Credentials
+
+- **Username:** `admin`
+- **Password:** `admin123`
+
+### Protected Operations
+
+All write operations (POST, PUT, DELETE) require authentication:
+- Creating, updating, or deleting students, classes, companies, products
+- Recording sales, expenses, revenues
+- Managing company members
+
+### Public Operations
+
+All read operations (GET) are publicly accessible:
+- Viewing students, classes, companies, products
+- Accessing detailed information and statistics
 
 ## Data Types
 
@@ -55,6 +79,183 @@ Error responses:
 - `404` - Not Found
 - `409` - Conflict
 - `500` - Internal Server Error
+
+---
+
+---
+
+# Authentication API
+
+## Login
+
+**POST** `/auth/login`
+
+Authenticate admin user and receive JWT token.
+
+### Request Body
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+### Response
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "admin": {
+    "id": "admin-1",
+    "username": "admin",
+    "last_login": "2025-08-18 22:39:34"
+  }
+}
+```
+
+### Error Responses
+- `400` - Username and password are required
+- `401` - Invalid credentials or account disabled
+
+## Logout
+
+**POST** `/auth/logout`
+
+**Requires Authentication**
+
+Logout current admin session.
+
+### Headers
+```
+Authorization: Bearer <token>
+```
+
+### Response
+```json
+{
+  "message": "Logout successful"
+}
+```
+
+## Verify Token
+
+**GET** `/auth/verify`
+
+**Requires Authentication**
+
+Verify if current token is valid and get admin info.
+
+### Headers
+```
+Authorization: Bearer <token>
+```
+
+### Response
+```json
+{
+  "valid": true,
+  "admin": {
+    "id": "admin-1",
+    "username": "admin"
+  }
+}
+```
+
+### Error Responses
+- `401` - Invalid or expired token
+
+## Authentication Status
+
+**GET** `/auth/status`
+
+Check authentication status without requiring valid token.
+
+### Response (Authenticated)
+```json
+{
+  "authenticated": true,
+  "admin": {
+    "id": "admin-1",
+    "username": "admin"
+  }
+}
+```
+
+### Response (Not Authenticated)
+```json
+{
+  "authenticated": false,
+  "admin": null
+}
+```
+
+## Create Admin User
+
+**POST** `/auth/create-admin`
+
+**Requires Authentication**
+
+Create a new admin user (admin-only operation).
+
+### Headers
+```
+Authorization: Bearer <token>
+```
+
+### Request Body
+```json
+{
+  "username": "newadmin",
+  "password": "securepassword"
+}
+```
+
+### Response
+```json
+{
+  "message": "Admin user created successfully",
+  "admin": {
+    "id": "uuid-here",
+    "username": "newadmin",
+    "created_at": "2025-08-18T22:39:34.000Z",
+    "last_login": null,
+    "is_active": true
+  }
+}
+```
+
+### Error Responses
+- `400` - Username and password are required
+- `401` - Access token required
+- `409` - Username already exists
+
+## List Admin Users
+
+**GET** `/auth/admins`
+
+**Requires Authentication**
+
+Get all admin users (passwords excluded).
+
+### Headers
+```
+Authorization: Bearer <token>
+```
+
+### Response
+```json
+{
+  "admins": [
+    {
+      "id": "admin-1",
+      "username": "admin",
+      "created_at": "2025-08-18T22:35:19.000Z",
+      "last_login": "2025-08-18T22:39:34.000Z",
+      "is_active": true
+    }
+  ]
+}
+```
 
 ---
 
@@ -107,7 +308,16 @@ GET /classes?include_students=true
 
 ## Create Class
 
+## Create New Class
+
 **POST** `/classes`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -130,7 +340,16 @@ GET /classes?include_students=true
 
 ## Update Class
 
-**PUT** `/classes/{id}`
+## Update Class
+
+**PUT** `/classes/:id`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -200,7 +419,16 @@ GET /classes?include_students=true
 
 ## Add Student to Class
 
-**POST** `/classes/{id}/students`
+## Add Students to Class (Batch Import)
+
+**POST** `/classes/:id/students`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -227,7 +455,16 @@ GET /classes?include_students=true
 
 ## Reset All Student Balances
 
-**POST** `/classes/{id}/reset-balances`
+## Reset All Student Balances in Class
+
+**POST** `/classes/:id/reset-balances`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Response
 ```json
@@ -253,7 +490,16 @@ GET /classes?include_students=true
 
 ## Delete Class
 
-**DELETE** `/classes/{id}`
+## Delete Class
+
+**DELETE** `/classes/:id`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Response
 ```json
@@ -314,7 +560,16 @@ GET /classes?include_students=true
 
 ## Create Student
 
+## Create New Student
+
 **POST** `/students`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -342,7 +597,16 @@ GET /classes?include_students=true
 
 ## Update Student
 
-**PUT** `/students/{id}`
+## Update Student
+
+**PUT** `/students/:id`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -369,7 +633,16 @@ GET /classes?include_students=true
 
 ## Update Student Balance
 
-**PUT** `/students/{id}/balance`
+## Update Student Balance
+
+**PUT** `/students/:id/balance`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -396,7 +669,16 @@ GET /classes?include_students=true
 
 ## Delete Student
 
-**DELETE** `/students/{id}`
+## Delete Student
+
+**DELETE** `/students/:id`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Response
 ```json
@@ -468,7 +750,16 @@ GET /classes?include_students=true
 
 ## Create Company
 
+## Create New Company
+
 **POST** `/companies`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -581,7 +872,16 @@ GET /classes?include_students=true
 
 ## Add Member to Company
 
-**POST** `/companies/{id}/members`
+## Add Member to Company
+
+**POST** `/companies/:id/members`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -611,7 +911,16 @@ GET /classes?include_students=true
 
 ## Remove Member from Company
 
-**DELETE** `/companies/{id}/members/{studentId}`
+## Remove Member from Company
+
+**DELETE** `/companies/:id/members/:studentId`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Response
 ```json
@@ -771,7 +1080,16 @@ GET /classes?include_students=true
 
 ## Distribute Profits
 
-**POST** `/companies/{id}/distribute-profits`
+## Distribute Profits to Student
+
+**POST** `/companies/:id/distribute-profits`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -923,7 +1241,16 @@ GET /products?class_id=550e8400-e29b-41d4-a716-446655440000&start_date=2025-08-1
 
 ## Launch Product
 
+## Launch New Product
+
 **POST** `/products`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Request Body
 ```json
@@ -1141,6 +1468,13 @@ GET /products?class_id=550e8400-e29b-41d4-a716-446655440000&start_date=2025-08-1
 ## Delete Product
 
 **DELETE** `/products/{id}`
+
+**Requires Authentication**
+
+### Headers
+```
+Authorization: Bearer <token>
+```
 
 ### Notes
 - Products with existing sales records cannot be deleted

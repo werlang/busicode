@@ -10,10 +10,13 @@ import Storage from '../helpers/storage.js';
 import Company from '../model/company.js';
 
 export default class CompanyView {
-    constructor() {
+    constructor(isAuthenticated = false) {
         this.companyManager = new CompanyManager();
         this.classManager = new ClassManager();
         this.navigationStorage = new Storage('busicode_navigation'); // For remembering filter
+        this.isReadOnlyMode = !isAuthenticated; // Set based on initial auth state
+        this.isRendering = false; // Flag to prevent concurrent renders
+        this.renderDebounceTimeout = null; // For debouncing render calls
 
         document.addEventListener('classSelectsUpdated', () => {
             this.updateCompanySelect();
@@ -29,10 +32,10 @@ export default class CompanyView {
         createCompanyBtn.addEventListener('click', async () => await this.createCompany());
         
         const companyClassSelect = document.querySelector('#company-class-select');
-        companyClassSelect.addEventListener('change', () => this.updateStudentSelect());
+        companyClassSelect.addEventListener('change', async () => await this.updateStudentSelect());
         
         const companyStudentsSelect = document.querySelector('#company-students');
-        companyStudentsSelect.addEventListener('change', () => this.updateStudentContributions());
+        companyStudentsSelect.addEventListener('change', async () => await this.updateStudentContributions());
 
         await this.updateClassSelect();
         await this.updateCompanySelect();
@@ -40,27 +43,36 @@ export default class CompanyView {
         // Listen for changes on the company filter select to update company cards and persist selection
         const companyFilterSelect = document.querySelector('#company-filter-select');
         if (companyFilterSelect) {
-            // Restore filter selection from navigation storage
-            const navData = this.navigationStorage.loadData() || {};
-            if (navData.companyClassFilter) {
-                companyFilterSelect.value = navData.companyClassFilter;
-            }
-            // Always render with restored or default value
-            this.renderCompanyList(companyFilterSelect.value);
+            // Always render with current filter value (already restored by updateCompanySelect)
+            await this.renderCompanyList(companyFilterSelect.value);
             // Save on change
-            companyFilterSelect.addEventListener('change', () => {
+            companyFilterSelect.addEventListener('change', async () => {
                 // Save to navigation storage
                 const navData = this.navigationStorage.loadData() || {};
                 navData.companyClassFilter = companyFilterSelect.value;
                 this.navigationStorage.saveData(navData);
-                this.renderCompanyList(companyFilterSelect.value);
+                this.debouncedRenderCompanyList(companyFilterSelect.value);
             });
         }
                                                             
         // Set up global event listeners
         this.setupGlobalListeners();
 
+        // Listen for read-only mode changes
+        document.addEventListener('readOnlyModeChanged', async (event) => {
+            this.isReadOnlyMode = event.detail.isReadOnly;
+            await this.handleReadOnlyMode();
+        });
+
         return this;
+    }
+
+    /**
+     * Handle read-only mode changes for dynamically generated elements
+     */
+    async handleReadOnlyMode() {
+        // Re-render the company list to apply read-only state to dynamic buttons
+        this.debouncedRenderCompanyList();
     }
 
     /**
@@ -156,8 +168,11 @@ export default class CompanyView {
     async updateClassSelect() {
         const classes = await this.classManager.getAllClasses();
         
+        // Ensure classes is always an array
+        const classesArray = Array.isArray(classes) ? classes : [];
+        
         // Sort classes alphabetically by name
-        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        classesArray.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
         
         // Store the current selection
         const companyClassSelect = document.querySelector('#company-class-select');
@@ -169,7 +184,7 @@ export default class CompanyView {
         }
         
         // Add class options
-        classes.forEach(classObj => {
+        classesArray.forEach(classObj => {
             const option = document.createElement('option');
             option.value = classObj.id;
             option.textContent = classObj.name;
@@ -177,7 +192,7 @@ export default class CompanyView {
         });
         
         // Restore selection if possible
-        const classExists = classes.some(c => c.id === currentSelection);
+        const classExists = Array.isArray(classesArray) && classesArray.some(c => c.id === currentSelection);
         if (classExists) {
             companyClassSelect.value = currentSelection;
         }
@@ -225,8 +240,11 @@ export default class CompanyView {
         const classSelect = document.querySelector('#company-filter-select');
         const classes = await this.companyManager.getUniqueClasses();
 
+        // Ensure classes is always an array
+        const classesArray = Array.isArray(classes) ? classes : [];
+
         // Sort classes alphabetically by name
-        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        classesArray.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
 
         // Clear options
         classSelect.innerHTML = '';
@@ -238,7 +256,7 @@ export default class CompanyView {
         classSelect.appendChild(allOption);
         
         // Add company options
-        classes.forEach(classObj => {
+        classesArray.forEach(classObj => {
             const option = document.createElement('option');
             option.value = classObj.id;
             option.textContent = classObj.name;
@@ -247,7 +265,7 @@ export default class CompanyView {
 
         // Restore filter selection from navigation storage
         const navData = this.navigationStorage.loadData() || {};
-        if (navData.companyClassFilter && [...classSelect.options].some(opt => opt.value === navData.companyClassFilter)) {
+        if (navData.companyClassFilter && classSelect && classSelect.options && [...classSelect.options].some(opt => opt.value === navData.companyClassFilter)) {
             classSelect.value = navData.companyClassFilter;
         }
     }
@@ -323,48 +341,82 @@ export default class CompanyView {
      */
     setupGlobalListeners() {
         // Listen for class list updates 
-        document.addEventListener('classSelectsUpdated', () => {
-            this.updateClassSelect();
-            this.updateStudentSelect();
-            this.updateCompanySelect();
+        document.addEventListener('classSelectsUpdated', async () => {
+            await this.updateClassSelect();
+            await this.updateStudentSelect();
+            await this.updateCompanySelect();
         });
 
-        document.addEventListener('classDeleted', (event) => {
+        document.addEventListener('classDeleted', async (event) => {
             const classId = event.detail.classId;
             const className = event.detail.className;
             
             // Delete companies associated with the deleted class
-            this.companyManager.deleteCompaniesByClass(classId, className);
+            await this.companyManager.deleteCompaniesByClass(classId, className);
             
-            this.updateClassSelect();
-            this.updateCompanySelect();
+            await this.updateClassSelect();
+            await this.updateCompanySelect();
         });
 
         // Listen for class renaming events
-        document.addEventListener('classRenamed', (event) => {
+        document.addEventListener('classRenamed', async (event) => {
             // The companies will continue to reference the same class ID
             // Just refresh the UI to display the new name
-            this.updateClassSelect();
-            this.updateCompanySelect();
-            this.renderCompanyList();
+            await this.updateClassSelect();
+            await this.updateCompanySelect();
+            this.debouncedRenderCompanyList();
         });
 
         // Listen for company creation events
-        document.addEventListener('companyCreated', () => {
-            this.updateCompanySelect();
-            this.renderCompanyList();
+        document.addEventListener('companyCreated', async () => {
+            await this.updateCompanySelect();
+            this.debouncedRenderCompanyList();
         });
 
         // Listen for company deletion events
-        document.addEventListener('companyDeleted', () => {
-            this.updateCompanySelect();
-            this.renderCompanyList();
+        document.addEventListener('companyDeleted', async () => {
+            await this.updateCompanySelect();
+            this.debouncedRenderCompanyList();
         });
 
         // Listen for product sales
-        document.addEventListener('productSalesUpdated', (event) => {
-            this.renderCompanyList();
+        document.addEventListener('productSalesUpdated', async (event) => {
+            this.debouncedRenderCompanyList();
         });
+    }
+
+    /**
+     * Debounced version of renderCompanyList to prevent multiple concurrent calls
+     * @param {string} classFilter - Optional filter by class ID
+     * @param {number} delay - Debounce delay in milliseconds (default: 150ms)
+     */
+    debouncedRenderCompanyList(classFilter = null, delay = 150) {
+        // Clear any existing timeout
+        if (this.renderDebounceTimeout) {
+            clearTimeout(this.renderDebounceTimeout);
+        }
+        
+        // Set a new timeout
+        this.renderDebounceTimeout = setTimeout(async () => {
+            await this.renderCompanyList(classFilter);
+        }, delay);
+    }
+
+    /**
+     * Force immediate render bypassing any concurrent render checks
+     * Use for user actions that require immediate feedback
+     * @param {string} classFilter - Optional filter by class ID
+     */
+    async forceRenderCompanyList(classFilter = null) {
+        // Clear any pending debounced renders
+        if (this.renderDebounceTimeout) {
+            clearTimeout(this.renderDebounceTimeout);
+            this.renderDebounceTimeout = null;
+        }
+        
+        // Reset rendering flag and render immediately
+        this.isRendering = false;
+        await this.renderCompanyList(classFilter);
     }
 
     /**
@@ -372,6 +424,14 @@ export default class CompanyView {
      * @param {string} classFilter - Optional filter by class ID
      */
     async renderCompanyList(classFilter = null) {
+        // Prevent concurrent renders
+        if (this.isRendering) {
+            return;
+        }
+        
+        this.isRendering = true;
+        
+        try {
         const companiesList = document.querySelector('#companies-list');
         if (!companiesList) return;
         companiesList.innerHTML = '';
@@ -487,6 +547,8 @@ export default class CompanyView {
                     viewAllButton.className = 'view-all-button';
                     viewAllButton.addEventListener('click', () => this.showFullHistoryModal(company, activityHistory));
                     
+                    // Note: View All button should remain visible in read-only mode as it's a view operation
+                    
                     viewAllItem.appendChild(viewAllButton);
                     historyList.appendChild(viewAllItem);
                 }
@@ -499,70 +561,81 @@ export default class CompanyView {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'company-actions';
 
-            const addExpenseBtn = document.createElement('button');
-            addExpenseBtn.textContent = 'Adicionar Despesa';
-            addExpenseBtn.className = 'expense-button';
-            addExpenseBtn.addEventListener('click', () => this.showFinanceModal(company, 'expense'));
+            // Only render action buttons if not in read-only mode
+            if (!this.isReadOnlyMode) {
+                const addExpenseBtn = document.createElement('button');
+                addExpenseBtn.textContent = 'Adicionar Despesa';
+                addExpenseBtn.className = 'expense-button';
+                addExpenseBtn.addEventListener('click', () => this.showFinanceModal(company, 'expense'));
 
-            const addRevenueBtn = document.createElement('button');
-            addRevenueBtn.textContent = 'Adicionar Receita';
-            addRevenueBtn.className = 'revenue-button';
-            addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
-            
-            // Add Edit Students button
-            const editStudentsBtn = document.createElement('button');
-            editStudentsBtn.textContent = 'Editar Alunos';
-            editStudentsBtn.className = 'edit-students-button';
-            editStudentsBtn.addEventListener('click', () => this.showEditStudentsModal(company));
+                const addRevenueBtn = document.createElement('button');
+                addRevenueBtn.textContent = 'Adicionar Receita';
+                addRevenueBtn.className = 'revenue-button';
+                addRevenueBtn.addEventListener('click', () => this.showFinanceModal(company, 'revenue'));
+                
+                // Add Edit Students button
+                const editStudentsBtn = document.createElement('button');
+                editStudentsBtn.textContent = 'Editar Alunos';
+                editStudentsBtn.className = 'edit-students-button';
+                editStudentsBtn.addEventListener('click', () => this.showEditStudentsModal(company));
 
-            const profitDistBtn = document.createElement('button');
-            profitDistBtn.textContent = 'Distribuir Lucros';
-            profitDistBtn.className = 'profit-dist-button';
-            profitDistBtn.title = 'Distribuir lucros para os membros da empresa';
-            profitDistBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
-            
-            // Only enable the button if there are profits to distribute
-            if (profit <= 0) {
-                profitDistBtn.disabled = true;
-                profitDistBtn.title = 'Não há lucros disponíveis para distribuir';
+                const profitDistBtn = document.createElement('button');
+                profitDistBtn.textContent = 'Distribuir Lucros';
+                profitDistBtn.className = 'profit-dist-button';
+                profitDistBtn.title = 'Distribuir lucros para os membros da empresa';
+                profitDistBtn.style.backgroundColor = '#9b59b6'; // Purple color to distinguish the button
+                
+                // Only enable the button if there are profits to distribute
+                if (profit <= 0) {
+                    profitDistBtn.disabled = true;
+                    profitDistBtn.title = 'Não há lucros disponíveis para distribuir';
+                }
+                
+                profitDistBtn.addEventListener('click', () => this.showDistributeProfitsModal(company));
+
+                buttonContainer.appendChild(addExpenseBtn);
+                buttonContainer.appendChild(addRevenueBtn);
+                buttonContainer.appendChild(editStudentsBtn);
+                buttonContainer.appendChild(profitDistBtn);
             }
             
-            profitDistBtn.addEventListener('click', () => this.showDistributeProfitsModal(company));
-
-            buttonContainer.appendChild(addExpenseBtn);
-            buttonContainer.appendChild(addRevenueBtn);
-            buttonContainer.appendChild(editStudentsBtn);
-            buttonContainer.appendChild(profitDistBtn);
             companyCard.appendChild(buttonContainer);
 
-            // Delete company button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Excluir Empresa';
-            deleteBtn.className = 'delete-button';
-            deleteBtn.addEventListener('click', () => {
-                Modal.show({
-                    title: 'Confirmar Exclusão',
-                    message: `Tem certeza que deseja excluir a empresa "${company.name}"?`,
-                    confirmText: 'Excluir',
-                    cancelText: 'Cancelar',
-                    type: 'danger',
-                    onConfirm: async () => {
-                        await this.companyManager.deleteCompany(company.id);
-                        Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
-                        
-                        // Notify other components that a company has been deleted
-                        document.dispatchEvent(new CustomEvent('companyDeleted', {
-                            detail: { 
-                                companyId: company.id
-                            }
-                        }));                        
-                    }
+            // Delete company button - only render if not in read-only mode
+            if (!this.isReadOnlyMode) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Excluir Empresa';
+                deleteBtn.className = 'delete-button';
+                deleteBtn.addEventListener('click', () => {
+                    Modal.show({
+                        title: 'Confirmar Exclusão',
+                        message: `Tem certeza que deseja excluir a empresa "${company.name}"?`,
+                        confirmText: 'Excluir',
+                        cancelText: 'Cancelar',
+                        type: 'danger',
+                        onConfirm: async () => {
+                            await this.companyManager.deleteCompany(company.id);
+                            Toast.show({ message: `Empresa "${company.name}" excluída com sucesso.`, type: 'success' });
+                            
+                            // Notify other components that a company has been deleted
+                            document.dispatchEvent(new CustomEvent('companyDeleted', {
+                                detail: { 
+                                    companyId: company.id
+                                }
+                            }));                        
+                        }
+                    });
                 });
-            });
 
-            companyCard.appendChild(deleteBtn);
+                companyCard.appendChild(deleteBtn);
+            }
             companiesList.appendChild(companyCard);
         });
+        } catch (error) {
+            console.error('Error rendering company list:', error);
+        } finally {
+            this.isRendering = false;
+        }
     }
 
     /**
@@ -618,7 +691,7 @@ export default class CompanyView {
                     Toast.show({ message: 'Receita adicionada com sucesso!', type: 'success' });
                 }
                 
-                this.renderCompanyList();
+                await this.renderCompanyList();
                 return true;
             }
         });
@@ -700,7 +773,7 @@ export default class CompanyView {
                 }
                 
                 // Update UI
-                this.renderCompanyList();
+                await this.renderCompanyList();
                 
                 // Notify that student balance was updated
                 document.dispatchEvent(new CustomEvent('studentBalanceUpdated', {
@@ -921,7 +994,7 @@ export default class CompanyView {
                 const result = await Promise.all(updatePromiseList);
 
                 if (result.every(res => res.success)) {
-                    this.renderCompanyList();
+                    await this.renderCompanyList();
                     Toast.show({ message: 'Lista de alunos atualizada com sucesso!', type: 'success' });
                 } else {
                     Toast.show({ message: result.message || 'Erro ao atualizar a lista de alunos.', type: 'error' });

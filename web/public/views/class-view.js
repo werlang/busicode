@@ -7,8 +7,9 @@ import Toast from '../components/toast.js';
 import Modal from '../components/modal.js';
 
 export default class ClassView {
-    constructor() {
+    constructor(isAuthenticated = false) {
         this.classManager = new ClassManager();
+        this.isReadOnlyMode = !isAuthenticated; // Set based on initial auth state
     }
     
     /**
@@ -21,12 +22,26 @@ export default class ClassView {
         document.querySelector('#add-student-btn')?.addEventListener('click', async () => await this.showAddStudentModal());
         document.querySelector('#class-bulk-action-btn')?.addEventListener('click', async () => await this.showClassBulkActionModal());
 
-        document.addEventListener('studentBalanceUpdated', () => this.renderClassList());
-        document.addEventListener('classSelectsUpdated', () => {
-            this.updateClassSelects();
+        document.addEventListener('studentBalanceUpdated', async () => await this.renderClassList());
+        document.addEventListener('classSelectsUpdated', async () => {
+            await this.updateClassSelects();
+        });
+
+        // Listen for read-only mode changes
+        document.addEventListener('readOnlyModeChanged', async (event) => {
+            this.isReadOnlyMode = event.detail.isReadOnly;
+            await this.handleReadOnlyMode();
         });
 
         return this;
+    }
+
+    /**
+     * Handle read-only mode changes for dynamically generated elements
+     */
+    async handleReadOnlyMode() {
+        // Re-render the class list to apply read-only state to dynamic buttons
+        await this.renderClassList();
     }
 
     /**
@@ -59,10 +74,13 @@ export default class ClassView {
     async renderClassList() {
         const classesList = document.querySelector('#classes-list');
         classesList.innerHTML = '';
-        
+
         const classes = await this.classManager.getAllClasses(true);
         
-        if (classes.length === 0) {
+        // Ensure classes is always an array
+        const classesArray = Array.isArray(classes) ? classes : [];
+        
+        if (classesArray.length === 0) {
             const emptyMessage = document.createElement('p');
             emptyMessage.className = 'student-list-empty';
             emptyMessage.textContent = 'Nenhuma turma cadastrada.';
@@ -71,9 +89,9 @@ export default class ClassView {
         }
         
         // Sort classes alphabetically by name
-        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        classesArray.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
         
-        classes.forEach(classObj => {
+        classesArray.forEach(classObj => {
             const classId = classObj.id;
             const className = classObj.name;
             const students = classObj.students || [];
@@ -96,17 +114,21 @@ export default class ClassView {
             classNameDisplay.textContent = className;
             classNameDisplay.className = 'class-name-display';
             
-            const editButton = document.createElement('button');
-            editButton.innerHTML = '✏️';
-            editButton.className = 'edit-class-name-btn';
-            editButton.title = 'Renomear Turma';
-            editButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.showRenameClassUI(classId, classNameContainer, className);
-            });
-            
             classNameContainer.appendChild(classNameDisplay);
-            classNameContainer.appendChild(editButton);
+            
+            // Only render edit button if not in read-only mode
+            if (!this.isReadOnlyMode) {
+                const editButton = document.createElement('button');
+                editButton.innerHTML = '✏️';
+                editButton.className = 'edit-class-name-btn';
+                editButton.title = 'Renomear Turma';
+                editButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showRenameClassUI(classId, classNameContainer, className);
+                });
+                
+                classNameContainer.appendChild(editButton);
+            }
             
             const studentCountDisplay = document.createElement('p');
             studentCountDisplay.innerHTML = `<strong>${students.length}</strong> alunos`;
@@ -114,24 +136,26 @@ export default class ClassView {
             classHeader.appendChild(classNameContainer);
             classHeader.appendChild(studentCountDisplay);
             
-            // Class action buttons
+            // Class action buttons - only render if not in read-only mode
             const classActions = document.createElement('div');
             classActions.className = 'class-actions';
             
-            // Bulk action button for entire class
-            const bulkActionBtn = document.createElement('button');
-            bulkActionBtn.textContent = 'Ações em Massa';
-            bulkActionBtn.className = 'bulk-action-button';
-            bulkActionBtn.addEventListener('click', async () => await this.showClassBulkActionModal(classId));
-            
-            // Add student button
-            const addStudentBtn = document.createElement('button');
-            addStudentBtn.textContent = 'Adicionar Aluno';
-            addStudentBtn.className = 'add-student-button';
-            addStudentBtn.addEventListener('click', async () => await this.showAddStudentModal(classId));
-            
-            classActions.appendChild(bulkActionBtn);
-            classActions.appendChild(addStudentBtn);
+            if (!this.isReadOnlyMode) {
+                // Bulk action button for entire class
+                const bulkActionBtn = document.createElement('button');
+                bulkActionBtn.textContent = 'Ações em Massa';
+                bulkActionBtn.className = 'bulk-action-button';
+                bulkActionBtn.addEventListener('click', async () => await this.showClassBulkActionModal(classId));
+                
+                // Add student button
+                const addStudentBtn = document.createElement('button');
+                addStudentBtn.textContent = 'Adicionar Aluno';
+                addStudentBtn.className = 'add-student-button';
+                addStudentBtn.addEventListener('click', async () => await this.showAddStudentModal(classId));
+                
+                classActions.appendChild(bulkActionBtn);
+                classActions.appendChild(addStudentBtn);
+            }
             
             const studentsList = document.createElement('ul');
             studentsList.className = 'student-list';
@@ -158,44 +182,46 @@ export default class ClassView {
                 studentInfo.appendChild(nameSpan);
                 studentInfo.appendChild(balanceSpan);
                 
-                // Student actions container
+                // Student actions container - only render if not in read-only mode
                 const studentActions = document.createElement('div');
                 studentActions.className = 'student-actions';
                 
-                // Add balance button
-                const addBalanceBtn = document.createElement('button');
-                addBalanceBtn.innerHTML = '+';
-                addBalanceBtn.className = 'balance-action-button add-balance';
-                addBalanceBtn.title = 'Adicionar Saldo';
-                addBalanceBtn.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    await this.showBalanceActionModal(classId, student.id, 'add');
-                });
-                
-                // Remove balance button
-                const removeBalanceBtn = document.createElement('button');
-                removeBalanceBtn.innerHTML = '-';
-                removeBalanceBtn.className = 'balance-action-button remove-balance';
-                removeBalanceBtn.title = 'Remover Saldo';
-                removeBalanceBtn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    await this.showBalanceActionModal(classId, student.id, 'remove');
-                });
-                
-                // Remove student button
-                const removeStudentBtn = document.createElement('button');
-                removeStudentBtn.innerHTML = '×';
-                removeStudentBtn.className = 'balance-action-button remove-student';
-                removeStudentBtn.title = 'Remover Aluno';
-                removeStudentBtn.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    await this.showRemoveStudentModal(classId, student.id, student.name);
-                });
-                
-                // Add buttons to actions
-                studentActions.appendChild(addBalanceBtn);
-                studentActions.appendChild(removeBalanceBtn);
-                studentActions.appendChild(removeStudentBtn);
+                if (!this.isReadOnlyMode) {
+                    // Add balance button
+                    const addBalanceBtn = document.createElement('button');
+                    addBalanceBtn.innerHTML = '+';
+                    addBalanceBtn.className = 'balance-action-button add-balance';
+                    addBalanceBtn.title = 'Adicionar Saldo';
+                    addBalanceBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await this.showBalanceActionModal(classId, student.id, 'add');
+                    });
+                    
+                    // Remove balance button
+                    const removeBalanceBtn = document.createElement('button');
+                    removeBalanceBtn.innerHTML = '-';
+                    removeBalanceBtn.className = 'balance-action-button remove-balance';
+                    removeBalanceBtn.title = 'Remover Saldo';
+                    removeBalanceBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        await this.showBalanceActionModal(classId, student.id, 'remove');
+                    });
+                    
+                    // Remove student button
+                    const removeStudentBtn = document.createElement('button');
+                    removeStudentBtn.innerHTML = '×';
+                    removeStudentBtn.className = 'balance-action-button remove-student';
+                    removeStudentBtn.title = 'Remover Aluno';
+                    removeStudentBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await this.showRemoveStudentModal(classId, student.id, student.name);
+                    });
+                    
+                    // Add buttons to actions
+                    studentActions.appendChild(addBalanceBtn);
+                    studentActions.appendChild(removeBalanceBtn);
+                    studentActions.appendChild(removeStudentBtn);
+                }
                 
                 // Add the elements to list item
                 listItem.appendChild(studentInfo);
@@ -204,31 +230,34 @@ export default class ClassView {
                 studentsList.appendChild(listItem);
             });
             
-            // Delete class button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Excluir Turma';
-            deleteBtn.className = 'delete-button';
-            deleteBtn.addEventListener('click', () => {
-                Modal.show({
-                    title: 'Confirmar Exclusão',
-                    message: `Tem certeza que deseja excluir a turma "${className}"?`,
-                    confirmText: 'Excluir',
-                    cancelText: 'Cancelar',
-                    type: 'danger',
-                    onConfirm: async () => {
-                        await this.classManager.deleteClass(classId);
-                        await this.renderClassList();
-                        document.dispatchEvent(new CustomEvent('classDeleted', { detail: { classId, className } }));
-                        document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
-                        Toast.show({ message: `Turma "${className}" excluída com sucesso.`, type: 'success' });
-                    }
-                });
-            });
-            
             classCard.appendChild(classHeader);
             classCard.appendChild(classActions);
             classCard.appendChild(studentsList);
-            classCard.appendChild(deleteBtn);
+            
+            // Delete class button - only render if not in read-only mode
+            if (!this.isReadOnlyMode) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Excluir Turma';
+                deleteBtn.className = 'delete-button';
+                deleteBtn.addEventListener('click', () => {
+                    Modal.show({
+                        title: 'Confirmar Exclusão',
+                        message: `Tem certeza que deseja excluir a turma "${className}"?`,
+                        confirmText: 'Excluir',
+                        cancelText: 'Cancelar',
+                        type: 'danger',
+                        onConfirm: async () => {
+                            await this.classManager.deleteClass(classId);
+                            await this.renderClassList();
+                            document.dispatchEvent(new CustomEvent('classDeleted', { detail: { classId, className } }));
+                            document.dispatchEvent(new CustomEvent('classSelectsUpdated'));
+                            Toast.show({ message: `Turma "${className}" excluída com sucesso.`, type: 'success' });
+                        }
+                    });
+                });
+                
+                classCard.appendChild(deleteBtn);
+            }
             
             classesList.appendChild(classCard);
         });
@@ -623,8 +652,11 @@ export default class ClassView {
     async updateClassSelects() {
         const classes = await this.classManager.getAllClasses();
         
+        // Ensure classes is always an array
+        const classesArray = Array.isArray(classes) ? classes : [];
+        
         // Sort classes alphabetically by name
-        classes.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
+        classesArray.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }));
         
         // Update class select
         // Store the current selection
@@ -638,7 +670,7 @@ export default class ClassView {
         }
         
         // Add class options
-        classes.forEach(classObj => {
+        classesArray.forEach(classObj => {
             const option = document.createElement('option');
             option.value = classObj.id;
             option.textContent = classObj.name;
@@ -646,7 +678,7 @@ export default class ClassView {
         });
         
         // Restore selection if possible
-        const classExists = classes.some(c => c.id === currentSelection);
+        const classExists = Array.isArray(classesArray) && classesArray.some(c => c.id === currentSelection);
         if (classExists) {
             classSelect.value = currentSelection;
         }        
