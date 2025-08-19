@@ -128,6 +128,8 @@ export default class AuthView {
             // Authenticated state
             if (authStatus) {
                 authStatus.className = 'auth-indicator authenticated';
+                authStatus.querySelector('.status-text').textContent = 
+                    `Admin: ${authState.admin.username}`;
             }
             
             if (loginBtn) loginBtn.style.display = 'none';
@@ -137,6 +139,7 @@ export default class AuthView {
             // Not authenticated state
             if (authStatus) {
                 authStatus.className = 'auth-indicator not-authenticated';
+                authStatus.querySelector('.status-text').textContent = 'Modo Somente Leitura';
             }
             
             if (loginBtn) loginBtn.style.display = 'inline-block';

@@ -1,13 +1,32 @@
 {
     "name": "busicode",
     "version": "1.0.0",
-    "description": "Helper for BusiCode assignments",
+    "description": "Educational business simulation platform.",
     "type": "module",
     "scripts": {
         "start": "if [ \"$NODE_ENV\" = \"production\" ]; then node app.js; else nodemon app.js; fi"
     },
+    "keywords": [
+        "education",
+        "business",
+        "simulation",
+        "rest-api",
+        "spa",
+        "mysql",
+        "jwt",
+        "express",
+        "docker"
+    ],
     "author": "Pablo Werlang",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/werlang/busicode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/werlang/busicode/issues"
+    },
+    "homepage": "https://github.com/werlang/busicode#readme",
     "dependencies": {
         "bcrypt": "^5.1.1",
         "cors": "^2.8.5",
@@ -15,5 +34,8 @@
         "jsonwebtoken": "^9.0.2",
         "mysql2": "^3.14.3",
         "nodemon": "^3.1.9"
+    },
+    "engines": {
+        "node": ">=24.0.0"
     }
 }

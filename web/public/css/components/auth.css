@@ -186,9 +186,7 @@
 }
 
 .auth-indicator.not-authenticated {
-    background-color: rgba(251, 146, 60, 0.2);
-    color: #ffffff;
-    border-color: rgba(251, 146, 60, 0.3);
+    display: none;
 }
 
 .auth-indicator .status-icon {
