@@ -1,5 +1,6 @@
 import Request from './request.js';
 import Storage from './storage.js';
+import TemplateVar from './template-var.js';
 
 /**
  * Authentication Manager
@@ -8,7 +9,7 @@ import Storage from './storage.js';
 export default class AuthManager {
     constructor() {
         this.request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
         this.storage = new Storage('busicode_auth');
         this.isAuthenticated = false;
@@ -210,7 +211,7 @@ export default class AuthManager {
      */
     getAuthenticatedRequest() {
         const request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
         
         if (this.isAuthenticated) {

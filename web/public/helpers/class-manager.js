@@ -4,11 +4,12 @@
  */
 import Request from './request.js';
 import Student from '../model/student.js';
+import TemplateVar from './template-var.js';
 
 export default class ClassManager {
     constructor() {
         this.request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
     }
     

@@ -5,11 +5,12 @@
 import Request from './request.js';
 import CompanyManager from './company-manager.js';
 import Product from '../model/product.js';
+import TemplateVar from './template-var.js';
 
 export default class ProductManager {
     constructor() {
         this.request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
         this.companyManager = new CompanyManager();
     }

@@ -11,10 +11,19 @@ app.set('views', import.meta.dirname + '/public/');
 const port = process.env.PORT || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
-app.use(express.static(import.meta.dirname + '/public/'));
+const templateVar = {
+    apiurl: process.env.API_URL || 'http://localhost:3000',
+}
 
 app.get('/', (req, res) => {
-    res.render('index', { apiurl: process.env.API_URL || 'http://localhost:3000' });
+    res.render('index', { templatevar: `<script id="templatevar" type="application/json">${JSON.stringify(templateVar)}</script>` });
+});
+
+app.use(express.static(import.meta.dirname + '/public/'));
+
+// 404
+app.use((req, res) => {
+    res.status(404).send('404 Not Found');
 });
 
 app.listen(port, host, () => {

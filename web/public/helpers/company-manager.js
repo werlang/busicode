@@ -5,11 +5,12 @@
 import Request from './request.js';
 import ClassManager from './class-manager.js';
 import Company from '../model/company.js';
+import TemplateVar from './template-var.js';
 
 export default class CompanyManager {
     constructor() {
         this.request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
         this.classManager = new ClassManager();
     }

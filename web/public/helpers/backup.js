@@ -1,11 +1,12 @@
 import Request from './request.js';
 import Toast from '../components/toast.js';
+import TemplateVar from './template-var.js';
 
 export default class Backup {
     
     constructor({ classView, companyView, productView }) {
         this.request = new Request({
-            url: 'http://localhost:3000',
+            url: TemplateVar.get('apiurl'),
         });
         this.classView = classView;
         this.companyView = companyView;
